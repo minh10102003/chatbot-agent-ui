@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+/* ----- Theme Variables ----- */
+:root {
+  --background: #181823;
+  --foreground: #e5e7ef;
+  --card: #232335;
+  --card-foreground: #e5e7ef;
+  --popover: #232335;
+  --popover-foreground: #e5e7ef;
+  --primary: #a678fa;
+  --primary-foreground: #fff;
+  --secondary: #242447;
+  --secondary-foreground: #a678fa;
+  --muted: #282839;
+  --muted-foreground: #8e8ea0;
+  --accent: #313154;
+  --accent-foreground: #a678fa;
+  --destructive: #f87171;
+  --destructive-foreground: #fff;
+  --border: #282839;
+  --input: #232335;
+  --ring: #a678fa;
+  --radius: 1rem;
+
+  /* Sidebar */
+  --sidebar: #1b1b2c;
+  --sidebar-foreground: #e5e7ef;
+  --sidebar-primary: #a678fa;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: #242447;
+  --sidebar-accent-foreground: #a678fa;
+  --sidebar-border: #232335;
+  --sidebar-ring: #a678fa;
+}
+
+/* Dark mode (dùng class .dark cho html) */
+.dark {
+  --background: #181823;
+  --foreground: #e5e7ef;
+  --card: #232335;
+  --card-foreground: #e5e7ef;
+  --popover: #232335;
+  --popover-foreground: #e5e7ef;
+  --primary: #a678fa;
+  --primary-foreground: #fff;
+  --secondary: #242447;
+  --secondary-foreground: #a678fa;
+  --muted: #282839;
+  --muted-foreground: #8e8ea0;
+  --accent: #313154;
+  --accent-foreground: #a678fa;
+  --destructive: #f87171;
+  --destructive-foreground: #fff;
+  --border: #282839;
+  --input: #232335;
+  --ring: #a678fa;
+  --radius: 1rem;
+  --sidebar: #1b1b2c;
+  --sidebar-foreground: #e5e7ef;
+  --sidebar-primary: #a678fa;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: #242447;
+  --sidebar-accent-foreground: #a678fa;
+  --sidebar-border: #232335;
+  --sidebar-ring: #a678fa;
+}
+
+/* Theme mapping for Tailwind (không bắt buộc nếu đã config trong tailwind.config.js) */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer utilities {
+  .shadow-inner-right {
+    box-shadow: inset -9px 0 6px -1px rgb(0 0 0 / 0.02);
+  }
+  .shadow-inner-left {
+    box-shadow: inset 9px 0 6px -1px rgb(0 0 0 / 0.02);
+  }
+}
