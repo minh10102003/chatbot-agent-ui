@@ -1,3 +1,5 @@
+'use client';
+
 import React, { Suspense } from "react";
 import ClientProviders from "@/components/ClientProviders";
 import { ThreadProvider } from "@/providers/Thread";
