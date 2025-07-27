@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.17.1",
-    "npm": ">=10.9.2"
+    "node": "18.x",
+    "npm": ">=8"
   },
   "scripts": {
     "dev": "next dev",
