@@ -1,11 +1,11 @@
 # netlify.toml
 
 [build]
-  # Lệnh build tạo ra folder .next
-  command   = "pnpm run build:ci"       # hoặc "pnpm run build"
-  # Netlify sẽ publish từ đây
+  # Dùng script CI (alias chạy build + export)
+  command   = "pnpm run build:ci"
+  # Netlify sẽ publish từ thư mục 'out'
   publish   = "out"
 
-# Ép Netlify dùng Node 18 để phù hợp engines.node
 [build.environment]
+  # Ép Netlify dùng Node.js 18.x
   NODE_VERSION = "18"
