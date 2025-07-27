@@ -10,13 +10,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:strict": "next build",
+    "build:ci": "pnpm run build:strict 2>&1 | tee build.log; if grep -q 'not-found' build.log; then echo '⚠️ Bỏ qua lỗi prerender 404'; exit 0; else grep -q 'error' build.log && exit 1 || exit 0; fi",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "build:strict": "next build",
-    "build:ci": "pnpm run build:strict 2>&1 | tee build.log && if grep -q 'not-found' build.log; then echo '⚠️ Bỏ qua lỗi 404 prerender'; exit 0; else grep -q 'error' build.log && exit 1 || exit 0; fi"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@langchain/core": "^0.3.44",

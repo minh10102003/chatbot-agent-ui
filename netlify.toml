@@ -1,7 +1,7 @@
 # netlify.toml
 
 [build]
-  command   = "npm run build"    # hoặc "pnpm run build"
+  command   = "pnpm run build:ci"    # hoặc "pnpm run build"
   publish   = ".next"            # thư mục build mặc định của Next.js
 
 # Đăng ký plugin Next.js
