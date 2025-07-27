@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && next export",
     "build:strict": "next build",
     "build:ci": "node scripts/build-ci.js",
     "start": "next start",
