@@ -1,12 +1,12 @@
 # netlify.toml
 
 [build]
-  command   = "pnpm run build:ci"    # hoặc "pnpm run build"
-  publish   = ".next"            # thư mục build mặc định của Next.js
+  command   = "pnpm run build:ci"
+  publish   = ".next"
 
 # Đăng ký plugin Next.js
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
-  NODE_VERSION = "18"            # đảm bảo Node.js 18.x
+  NODE_VERSION = "18"
