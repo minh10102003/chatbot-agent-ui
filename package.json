@@ -1,14 +1,12 @@
 {
   "name": "agent-chat-ui",
-  "readme": "https://github.com/langchain-ai/agent-chat-ui/blob/main/README.md",
-  "homepage": "https://agentchat.vercel.app",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/langchain-ai/agent-chat-ui.git"
-  },
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.17.1",
+    "npm": ">=10.9.2"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -72,6 +70,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",
+    "netlify-plugin-cache": "^1.0.3",
     "next": "^15.2.3",
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
