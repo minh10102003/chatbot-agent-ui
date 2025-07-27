@@ -1,0 +1,7 @@
+# netlify.toml
+[build]
+  command   = "pnpm run build:ci"  # hoặc "npm run build:ci"
+  publish   = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"             # đảm bảo Netlify dùng Node 18.x
