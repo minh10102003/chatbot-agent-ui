@@ -4,13 +4,8 @@
   # Lệnh build tạo ra folder .next
   command   = "pnpm run build:ci"       # hoặc "pnpm run build"
   # Netlify sẽ publish từ đây
-  publish   = ".next"
+  publish   = "out"
 
 # Ép Netlify dùng Node 18 để phù hợp engines.node
 [build.environment]
   NODE_VERSION = "18"
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
-
-# Kích hoạt plugin Next.js
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
