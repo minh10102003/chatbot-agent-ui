@@ -42,63 +42,45 @@ import {
   useArtifactContext,
 } from "./artifact";
 
-// Scroll/Stick to bottom logic
-function StickyToBottomContent(props: {
-  content: ReactNode;
-  footer?: ReactNode;
-  className?: string;
-  contentClassName?: string;
-}) {
-  const context = useStickToBottomContext();
-  return (
-    <div
-      ref={context.scrollRef}
-      style={{ width: "100%", height: "100%" }}
-      className={props.className}
-    >
-      <div ref={context.contentRef} className={props.contentClassName}>
-        {props.content}
-      </div>
-      {props.footer}
-    </div>
-  );
-}
+// Custom scroll to bottom button
+function ScrollToBottomButton() {
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-function ScrollToBottom(props: { className?: string }) {
-  const { isAtBottom, scrollToBottom } = useStickToBottomContext();
-  if (isAtBottom) return null;
-  return (
-    <Button
-      variant="outline"
-      className={props.className}
-      onClick={() => scrollToBottom()}
-    >
-      <ArrowDown className="h-4 w-4" />
-      <span>Scroll to bottom</span>
-    </Button>
-  );
-}
+  const scrollToBottom = () => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
 
-// function OpenGitHubRepo() {
-//   return (
-//     <TooltipProvider>
-//       <Tooltip>
-//         <TooltipTrigger asChild>
-//           <a
-//             href="https://github.com/langchain-ai/agent-chat-ui"
-//             target="_blank"
-//             className="flex items-center justify-center"
-//           >
-//             <LangGraphLogoSVG width={24} height={24} />
-//           </a>
-//         </TooltipTrigger>
-//         <TooltipContent side="left">
-//           <p>Open GitHub repo</p>
-//         </TooltipContent>
-//       </Tooltip>
-//     </TooltipProvider>
-//   );
-// }
+  const handleScroll = () => {
+    if (!messagesContainerRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setShowScrollButton(!isAtBottom);
+  };
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
+  return {
+    showScrollButton,
+    scrollToBottom,
+    messagesEndRef,  
+    messagesContainerRef,
+  };
+}
 
 // MAIN EXPORT
 export function Thread() {
@@ -134,10 +116,16 @@ export function Thread() {
 
   const lastError = useRef<string | undefined>(undefined);
 
+  // Custom scroll logic
+  const {
+    showScrollButton,
+    scrollToBottom,
+    messagesEndRef,
+    messagesContainerRef,
+  } = ScrollToBottomButton();
+
   const setThreadId = (id: string | null) => {
     _setThreadId(id);
-
-    // close artifact and reset artifact context
     closeArtifact();
     setArtifactContext({});
   };
@@ -164,11 +152,27 @@ export function Thread() {
       });
     } catch {
       // no-op
-    }
+    }  
   }, [stream.error]);
 
-  // TODO: this should be part of the useStream hook
+  // Auto scroll to bottom when new messages arrive
   const prevMessageLength = useRef(0);
+  useEffect(() => {
+    if (messages.length > prevMessageLength.current && messagesContainerRef.current) {
+      setTimeout(() => {
+        // Scroll chỉ trong container messages, không ảnh hưởng toàn trang
+        const container = messagesContainerRef.current;
+        if (container) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+    prevMessageLength.current = messages.length;
+  }, [messages]);
+
   useEffect(() => {
     if (
       messages.length !== prevMessageLength.current &&
@@ -196,7 +200,6 @@ export function Thread() {
     };
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
-
     const context =
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
 
@@ -234,190 +237,237 @@ export function Thread() {
     (m) => m.type === "ai" || m.type === "tool"
   );
 
-  // Lọc ra chỉ các Base64ContentBlock (hình ảnh hoặc file)
   const mediaBlocks: Base64ContentBlock[] = contentBlocks.filter(
     (b): b is Base64ContentBlock =>
       b.type === "image" || b.type === "file"
   );
 
-  // Hàm xóa block media theo index trong mediaBlocks
   const removeMediaBlock = (idx: number) => {
     const blockToRemove = mediaBlocks[idx];
     setContentBlocks((prev) => prev.filter((b) => b !== blockToRemove));
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* MAIN FLEX - không còn wrap card/khung lớn */}
-      <div className="flex-1 flex flex-col justify-end w-full h-full">
-        <StickToBottom className="flex-1 flex flex-col justify-end">
-          <StickyToBottomContent
-            className={cn(
-              "flex-1 flex flex-col",
-              !chatStarted && "mt-[20vh] items-stretch",
-              chatStarted && "grid grid-rows-[1fr_auto]"
+    <div className="h-screen w-full overflow-hidden bg-background flex">
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col h-full min-w-0">
+        {/* Header - fixed height */}
+        {!chatStarted && (
+          <div className="flex-shrink-0 h-16 flex items-center justify-center border-b bg-background px-4">
+            <LangGraphLogoSVG className="h-6 flex-shrink-0" />
+            <h1 className="text-xl font-semibold tracking-tight ml-2">
+              Agent Data Chat
+            </h1>
+          </div>
+        )}
+
+        {/* Messages area - flexible, scrollable with transition */}
+        <div 
+          ref={messagesContainerRef}
+          className={cn(
+            "flex-1 overflow-y-auto min-h-0 transition-all duration-700 ease-in-out",
+            !chatStarted ? "flex items-center justify-center" : ""
+          )}
+          style={{ scrollBehavior: 'smooth' }}
+        >
+          <div className="w-full px-4 min-h-full">
+            {/* Welcome message for new chat - centered */}
+            {!chatStarted && (
+              <div className="text-center transform transition-all duration-700 ease-in-out">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <LangGraphLogoSVG className="h-12 flex-shrink-0" />
+                </div>
+                <h2 className="text-3xl font-semibold tracking-tight mb-2">
+                  Tôi có thể giúp gì cho bạn?
+                </h2>
+                <p className="text-muted-foreground text-base opacity-80">
+                  Bắt đầu cuộc trò chuyện bằng cách nhập tin nhắn bên dưới
+                </p>
+              </div>
             )}
-            contentClassName="pt-8 pb-4 flex flex-col gap-4 w-full"
-            content={
-              <>
+
+            {/* Messages - normal flow when chat started */}
+            {chatStarted && (
+              <div className="py-4 space-y-4 max-w-4xl mx-auto animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
                 {messages
                   .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
                   .map((message, index) =>
                     message.type === "human" ? (
-                      <HumanMessage
-                        key={message.id || `${message.type}-${index}`}
-                        message={message}
-                        isLoading={isLoading}
-                      />
+                      <div key={message.id || `${message.type}-${index}`} className="flex justify-end">
+                        <div className="w-full max-w-[70%]">
+                          <HumanMessage
+                            message={message}
+                            isLoading={isLoading}
+                          />
+                        </div>
+                      </div>
                     ) : (
-                      <AssistantMessage
-                        key={message.id || `${message.type}-${index}`}
-                        message={message}
-                        isLoading={isLoading}
-                        handleRegenerate={handleRegenerate}
-                      />
+                      <div key={message.id || `${message.type}-${index}`} className="flex justify-start">
+                        <div className="w-full max-w-[85%]">
+                          <AssistantMessage
+                            message={message}
+                            isLoading={isLoading}
+                            handleRegenerate={handleRegenerate}
+                          />
+                        </div>
+                      </div>
                     )
                   )}
                 {hasNoAIOrToolMessages && !!stream.interrupt && (
-                  <AssistantMessage
-                    key="interrupt-msg"
-                    message={undefined}
-                    isLoading={isLoading}
-                    handleRegenerate={handleRegenerate}
-                  />
-                )}
-                {isLoading && !firstTokenReceived && (
-                  <AssistantMessageLoading />
-                )}
-              </>
-            }
-            footer={
-              <div className="sticky bottom-0 flex flex-col items-center gap-8 w-full bg-background px-0 pb-8">
-                {/* Bỏ wrap, input full width luôn */}
-                {!chatStarted && (
-                  <div className="flex items-center gap-3">
-                    <LangGraphLogoSVG className="h-8 flex-shrink-0" />
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                      Agent Data Chat
-                    </h1>
+                  <div className="flex justify-start">
+                    <div className="w-full max-w-[85%]">
+                      <AssistantMessage
+                        key="interrupt-msg"
+                        message={undefined}
+                        isLoading={isLoading}
+                        handleRegenerate={handleRegenerate}
+                      />
+                    </div>
                   </div>
                 )}
-
-                <ScrollToBottom className="animate-in fade-in-0 zoom-in-95 absolute bottom-full left-1/2 mb-4 -translate-x-1/2" />
-
-                <div
-                  ref={dropRef}
-                  className={cn(
-                    "bg-muted relative z-10 w-full rounded-2xl shadow-xs transition-all",
-                    dragOver
-                      ? "border-primary border-2 border-dotted"
-                      : "border border-solid"
-                  )}
-                >
-                  <form
-                    onSubmit={handleSubmit}
-                    className="w-full grid grid-rows-[1fr_auto] gap-2"
-                  >
-                    <ContentBlocksPreview
-                      blocks={contentBlocks}
-                      onRemove={removeBlock}
-                      size="md"
-                    />
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onPaste={handlePaste}
-                      onKeyDown={(e) => {
-                        if (
-                          e.key === "Enter" &&
-                          !e.shiftKey &&
-                          !e.metaKey &&
-                          !e.nativeEvent.isComposing
-                        ) {
-                          e.preventDefault();
-                          const el = e.target as HTMLElement | undefined;
-                          const form = el?.closest("form");
-                          form?.requestSubmit();
-                        }
-                      }}
-                      placeholder="Type your message..."
-                      className="field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none text-foreground"
-                    />
-
-                    <div className="flex items-center gap-6 p-2 pt-4">
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id="render-tool-calls"
-                            checked={hideToolCalls ?? false}
-                            onCheckedChange={setHideToolCalls}
-                          />
-                          <Label
-                            htmlFor="render-tool-calls"
-                            className="text-sm text-gray-600"
-                          >
-                            Hide Tool Calls
-                          </Label>
-                        </div>
-                      </div>
-                      <Label
-                        htmlFor="file-input"
-                        className="flex cursor-pointer items-center gap-2"
-                      >
-                        <Plus className="size-5 text-gray-600" />
-                        <span className="text-sm text-gray-600">
-                          Upload image, PDF or CSV
-                        </span>
-                      </Label>
-                      <input
-                        id="file-input"
-                        type="file"
-                        onChange={handleFileUpload}
-                        multiple
-                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/csv"
-                        className="hidden"
-                      />
-                      {stream.isLoading ? (
-                        <Button
-                          key="stop"
-                          onClick={() => stream.stop()}
-                          className="ml-auto"
-                        >
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Cancel
-                        </Button>
-                      ) : (
-                        <Button
-                          type="submit"
-                          className="ml-auto shadow-md transition-all"
-                          disabled={
-                            isLoading ||
-                            (!input.trim() && contentBlocks.length === 0)
-                          }
-                        >
-                          Send
-                        </Button>
-                      )}
+                {isLoading && !firstTokenReceived && (
+                  <div className="flex justify-start">
+                    <div className="w-full max-w-[85%]">
+                      <AssistantMessageLoading />
                     </div>
-                  </form>
-                </div>
+                  </div>
+                )}
               </div>
-            }
-          />
-        </StickToBottom>
-      </div>
-      {/* Artifact side panel nếu có */}
-      {artifactOpen && (
-        <div className="relative flex flex-col border-l bg-card h-full min-w-[30vw]">
-          <div className="absolute inset-0 flex flex-col">
-            <div className="grid grid-cols-[1fr_auto] border-b p-4">
-              <ArtifactTitle className="truncate overflow-hidden" />
-              <button onClick={closeArtifact} className="cursor-pointer">
-                <XIcon className="size-5" />
-              </button>
-            </div>
-            <ArtifactContent className="relative flex-grow" /> 
+            )}
+            {/* Invisible div to scroll to */}
+            <div ref={messagesEndRef} />
           </div>
+        </div>
+
+        {/* Input area - fixed height with proper padding and transition */}
+        <div className={cn(
+          "flex-shrink-0 border-t bg-background p-4 pb-12 transition-all duration-700 ease-in-out",
+          !chatStarted ? "transform translate-y-0" : ""
+        )}>
+          <div className="w-full max-w-4xl mx-auto">
+            <div
+              ref={dropRef}
+              className={cn(
+                "bg-muted relative rounded-2xl shadow-sm transition-all max-w-3xl mx-auto duration-300 ease-in-out",
+                dragOver
+                  ? "border-primary border-2 border-dotted"
+                  : "border border-solid",
+                !chatStarted ? "shadow-lg border-primary/20" : ""
+              )}
+            >
+              <form
+                onSubmit={handleSubmit}
+                className="w-full grid grid-rows-[1fr_auto] gap-2"
+              >
+                <ContentBlocksPreview
+                  blocks={contentBlocks}
+                  onRemove={removeBlock}
+                  size="md"
+                />
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onPaste={handlePaste}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      !e.metaKey &&
+                      !e.nativeEvent.isComposing
+                    ) {
+                      e.preventDefault();
+                      const el = e.target as HTMLElement | undefined;
+                      const form = el?.closest("form");
+                      form?.requestSubmit();
+                    }
+                  }}
+                  placeholder="Type your message..."
+                  className="field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none text-foreground min-h-[2.5rem] max-h-32"
+                />
+
+                <div className="flex items-center gap-6 p-2 pt-4">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="render-tool-calls"
+                        checked={hideToolCalls ?? false}
+                        onCheckedChange={setHideToolCalls}
+                      />
+                      <Label
+                        htmlFor="render-tool-calls"
+                        className="text-sm text-gray-600"
+                      >
+                        Hide Tool Calls
+                      </Label>
+                    </div>
+                  </div>
+                  <Label
+                    htmlFor="file-input"
+                    className="flex cursor-pointer items-center gap-2"
+                  >
+                    <Plus className="size-5 text-gray-600" />
+                    <span className="text-sm text-gray-600">
+                      Upload image, PDF or CSV
+                    </span>
+                  </Label>
+                  <input
+                    id="file-input"
+                    type="file"
+                    onChange={handleFileUpload}
+                    multiple
+                    accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/csv"
+                    className="hidden"
+                  />
+                  {stream.isLoading ? (
+                    <Button
+                      key="stop"
+                      onClick={() => stream.stop()}
+                      className="ml-auto"
+                    >
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Cancel
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      className="ml-auto shadow-md transition-all"
+                      disabled={
+                        isLoading ||
+                        (!input.trim() && contentBlocks.length === 0)
+                      }
+                    >
+                      Send
+                    </Button>
+                  )}
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {/* Scroll to bottom button - floating above input */}
+        {showScrollButton && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="fixed bottom-36 left-1/2 transform -translate-x-1/2 z-10 rounded-full shadow-lg animate-in fade-in-0 zoom-in-95"
+            onClick={scrollToBottom}
+          >
+            <ArrowDown className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* Artifact side panel */}
+      {artifactOpen && (
+        <div className="w-96 border-l bg-card h-full flex flex-col flex-shrink-0">
+          <div className="flex items-center justify-between border-b p-4">
+            <ArtifactTitle className="truncate overflow-hidden flex-1 mr-2" />
+            <button onClick={closeArtifact} className="cursor-pointer">
+              <XIcon className="size-5" />
+            </button>
+          </div>
+          <ArtifactContent className="flex-1 overflow-y-auto" />
         </div>
       )}
     </div>

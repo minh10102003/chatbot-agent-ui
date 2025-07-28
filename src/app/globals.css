@@ -102,10 +102,13 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    margin: 0;
+    padding: 0;
   }
   body {
     @apply bg-background text-foreground font-sans;
-    min-height: 100vh;
+    height: 100vh; /* Thay min-height bằng height để fit chính xác */
+    overflow: hidden; /* Ngăn scroll toàn cục */
     -webkit-font-smoothing: antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }

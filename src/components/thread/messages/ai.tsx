@@ -141,8 +141,14 @@ export function AssistantMessage({
   }
 
   return (
-    <div className="group mr-auto flex items-start gap-2">
-      <div className="flex flex-col gap-2">
+    <div className="group flex items-start gap-3 w-full">
+      {/* AI Avatar */}
+      <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
+        AI
+      </div>
+      
+      {/* Message Content */}
+      <div className="flex-1 min-w-0">
         {isToolResult ? (
           <>
             <ToolResult message={message} />
@@ -187,7 +193,7 @@ export function AssistantMessage({
             />
             <div
               className={cn(
-                "mr-auto flex items-center gap-2 transition-opacity",
+                "flex items-center gap-2 mt-2 transition-opacity",
                 "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
               )}
             >
@@ -213,7 +219,13 @@ export function AssistantMessage({
 
 export function AssistantMessageLoading() {
   return (
-    <div className="mr-auto flex items-start gap-2">
+    <div className="flex items-start gap-3 w-full">
+      {/* AI Avatar */}
+      <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
+        AI
+      </div>
+      
+      {/* Loading indicator */}
       <div className="bg-muted flex h-8 items-center gap-1 rounded-2xl px-4 py-2">
         <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full"></div>
         <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_0.5s_infinite] rounded-full"></div>

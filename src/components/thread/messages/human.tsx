@@ -72,13 +72,12 @@ export function HumanMessage({
   };
 
   return (
-    <div
-      className={cn(
-        "group ml-auto flex items-center gap-2",
-        isEditing && "w-full max-w-xl",
-      )}
-    >
-      <div className={cn("flex flex-col gap-2", isEditing && "w-full")}>
+    <div className="group flex items-start gap-3 justify-end w-full">
+      {/* Message Content - Flex order 2 to appear after avatar on mobile */}
+      <div className={cn(
+        "flex flex-col gap-2 order-1",
+        isEditing && "w-full"
+      )}>
         {isEditing ? (
           <EditableContent
             value={value}
@@ -86,8 +85,8 @@ export function HumanMessage({
             onSubmit={handleSubmitEdit}
           />
         ) : (
-          <div className="flex flex-col gap-2">
-            {/* Render images and files if no text */}
+          <div className="flex flex-col gap-2 items-end">
+            {/* Render images and files if present */}
             {Array.isArray(message.content) && message.content.length > 0 && (
               <div className="flex flex-wrap items-end justify-end gap-2">
                 {message.content.reduce<React.ReactNode[]>(
@@ -107,18 +106,19 @@ export function HumanMessage({
                 )}
               </div>
             )}
-            {/* Render text if present, otherwise fallback to file/image name */}
-            {contentString ? (
-              <p className="bg-muted ml-auto w-fit rounded-3xl px-4 py-2 text-right whitespace-pre-wrap">
+            {/* Render text content */}
+            {contentString && (
+              <div className="bg-primary text-primary-foreground rounded-2xl px-4 py-2 max-w-sm whitespace-pre-wrap text-right">
                 {contentString}
-              </p>
-            ) : null}
+              </div>
+            )}
           </div>
         )}
 
+        {/* Command bar */}
         <div
           className={cn(
-            "ml-auto flex items-center gap-2 transition-opacity",
+            "flex items-center gap-2 justify-end transition-opacity",
             "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
             isEditing && "opacity-100",
           )}
@@ -143,6 +143,11 @@ export function HumanMessage({
             isHumanMessage={true}
           />
         </div>
+      </div>
+
+      {/* User Avatar - Flex order 1 to appear first */}
+      <div className="flex-shrink-0 w-8 h-8 bg-muted border-2 border-primary rounded-full flex items-center justify-center text-primary text-sm font-medium order-2">
+        U
       </div>
     </div>
   );

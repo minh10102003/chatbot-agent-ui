@@ -26,7 +26,7 @@ interface ThreadContextType {
 const ThreadContext = createContext<ThreadContextType | undefined>(undefined);
 
 function getThreadSearchMetadata(
-  assistantId: string,
+  assistantId: string
 ): { graph_id: string } | { assistant_id: string } {
   if (validate(assistantId)) {
     return { assistant_id: assistantId };
