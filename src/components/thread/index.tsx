@@ -271,7 +271,7 @@ export function Thread() {
           style={{ scrollBehavior: 'smooth' }}
         >
           <div className="w-full px-4 min-h-full">
-            {/* Welcome message for new chat - centered */}
+            {/* Welcome message for new chat - centered
             {!chatStarted && (
               <div className="flex flex-col items-center justify-center h-full text-center transform transition-all duration-700 ease-in-out">
                 <div className="flex items-center justify-center gap-2 mb-4">
@@ -284,7 +284,7 @@ export function Thread() {
                   Bắt đầu cuộc trò chuyện bằng cách nhập tin nhắn bên dưới
                 </p>
               </div>
-            )}
+            )} */}
 
             {/* Messages - normal flow when chat started */}
             {chatStarted && (
