@@ -1,30 +1,17 @@
+// src/app/page.tsx
 'use client';
+import React from 'react';
+import dynamic from 'next/dynamic';
 
-import React, { Suspense } from 'react';
-import ClientProviders from '@/components/ClientProviders';
-import { ThreadProvider } from '@/providers/Thread';
-import { StreamProvider } from '@/providers/Stream';
-import { ArtifactProvider } from '@/components/thread/artifact';
-
-// Component chứa tất cả providers và logic chính
-function AppContent() {
-  return (
-    <ClientProviders>
-      <ThreadProvider>
-        <StreamProvider>
-          <ArtifactProvider>
-            {/* UI chính của app ở đây */}
-          </ArtifactProvider>
-        </StreamProvider>
-      </ThreadProvider>
-    </ClientProviders>
-  );
-}
+// Load AppContentClient only on client, preventing any server-side prerender issues
+const AppContentClient = dynamic(
+  () => import('./AppContentClient'),
+  {
+    ssr: false,
+    loading: () => <div>Loading app...</div>,
+  }
+);
 
 export default function Page() {
-  return (
-    <Suspense fallback={<div>Loading app...</div>}>
-      <AppContent />
-    </Suspense>
-  );
+  return <AppContentClient />;
 }

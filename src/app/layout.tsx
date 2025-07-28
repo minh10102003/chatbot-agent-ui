@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   title: "Agent Data Chat",
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: Readonly<{
