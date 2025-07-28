@@ -7,6 +7,7 @@ import { useStreamContext } from "@/providers/Stream";
 import { useState, FormEvent } from "react";
 import { Button } from "../ui/button";
 import { Checkpoint, Message } from "@langchain/langgraph-sdk";
+import { Base64ContentBlock } from "@langchain/core/messages";
 import { AssistantMessage, AssistantMessageLoading } from "./messages/ai";
 import { HumanMessage } from "./messages/human";
 import {
@@ -17,9 +18,6 @@ import { LangGraphLogoSVG } from "../icons/langgraph";
 import {
   ArrowDown,
   LoaderCircle,
-  PanelRightOpen,
-  PanelRightClose,
-  SquarePen,
   XIcon,
   Plus,
 } from "lucide-react";
@@ -29,7 +27,6 @@ import { toast } from "sonner";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-import { GitHubSVG } from "../icons/github";
 import {
   Tooltip,
   TooltipContent,
@@ -59,10 +56,7 @@ function StickyToBottomContent(props: {
       style={{ width: "100%", height: "100%" }}
       className={props.className}
     >
-      <div
-        ref={context.contentRef}
-        className={props.contentClassName}
-      >
+      <div ref={context.contentRef} className={props.contentClassName}>
         {props.content}
       </div>
       {props.footer}
@@ -85,26 +79,26 @@ function ScrollToBottom(props: { className?: string }) {
   );
 }
 
-function OpenGitHubRepo() {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href="https://github.com/langchain-ai/agent-chat-ui"
-            target="_blank"
-            className="flex items-center justify-center"
-          >
-            <GitHubSVG width="24" height="24" />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>Open GitHub repo</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
+// function OpenGitHubRepo() {
+//   return (
+//     <TooltipProvider>
+//       <Tooltip>
+//         <TooltipTrigger asChild>
+//           <a
+//             href="https://github.com/langchain-ai/agent-chat-ui"
+//             target="_blank"
+//             className="flex items-center justify-center"
+//           >
+//             <LangGraphLogoSVG width={24} height={24} />
+//           </a>
+//         </TooltipTrigger>
+//         <TooltipContent side="left">
+//           <p>Open GitHub repo</p>
+//         </TooltipContent>
+//       </Tooltip>
+//     </TooltipProvider>
+//   );
+// }
 
 // MAIN EXPORT
 export function Thread() {
@@ -114,11 +108,11 @@ export function Thread() {
   const [threadId, _setThreadId] = useQueryState("threadId");
   const [chatHistoryOpen, setChatHistoryOpen] = useQueryState(
     "chatHistoryOpen",
-    parseAsBoolean.withDefault(false),
+    parseAsBoolean.withDefault(false)
   );
   const [hideToolCalls, setHideToolCalls] = useQueryState(
     "hideToolCalls",
-    parseAsBoolean.withDefault(false),
+    parseAsBoolean.withDefault(false)
   );
   const [input, setInput] = useState("");
   const {
@@ -219,16 +213,14 @@ export function Thread() {
             newHumanMessage,
           ],
         }),
-      },
+      }
     );
 
     setInput("");
     setContentBlocks([]);
   };
 
-  const handleRegenerate = (
-    parentCheckpoint: Checkpoint | null | undefined,
-  ) => {
+  const handleRegenerate = (parentCheckpoint: Checkpoint | null | undefined) => {
     prevMessageLength.current = prevMessageLength.current - 1;
     setFirstTokenReceived(false);
     stream.submit(undefined, {
@@ -239,8 +231,20 @@ export function Thread() {
 
   const chatStarted = !!threadId || !!messages.length;
   const hasNoAIOrToolMessages = !messages.find(
-    (m) => m.type === "ai" || m.type === "tool",
+    (m) => m.type === "ai" || m.type === "tool"
   );
+
+  // Lọc ra chỉ các Base64ContentBlock (hình ảnh hoặc file)
+  const mediaBlocks: Base64ContentBlock[] = contentBlocks.filter(
+    (b): b is Base64ContentBlock =>
+      b.type === "image" || b.type === "file"
+  );
+
+  // Hàm xóa block media theo index trong mediaBlocks
+  const removeMediaBlock = (idx: number) => {
+    const blockToRemove = mediaBlocks[idx];
+    setContentBlocks((prev) => prev.filter((b) => b !== blockToRemove));
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -251,7 +255,7 @@ export function Thread() {
             className={cn(
               "flex-1 flex flex-col",
               !chatStarted && "mt-[20vh] items-stretch",
-              chatStarted && "grid grid-rows-[1fr_auto]",
+              chatStarted && "grid grid-rows-[1fr_auto]"
             )}
             contentClassName="pt-8 pb-4 flex flex-col gap-4 w-full"
             content={
@@ -272,7 +276,7 @@ export function Thread() {
                         isLoading={isLoading}
                         handleRegenerate={handleRegenerate}
                       />
-                    ),
+                    )
                   )}
                 {hasNoAIOrToolMessages && !!stream.interrupt && (
                   <AssistantMessage
@@ -307,7 +311,7 @@ export function Thread() {
                     "bg-muted relative z-10 w-full rounded-2xl shadow-xs transition-all",
                     dragOver
                       ? "border-primary border-2 border-dotted"
-                      : "border border-solid",
+                      : "border border-solid"
                   )}
                 >
                   <form
@@ -315,8 +319,8 @@ export function Thread() {
                     className="w-full grid grid-rows-[1fr_auto] gap-2"
                   >
                     <ContentBlocksPreview
-                      blocks={contentBlocks}
-                      onRemove={removeBlock}
+                      blocks={mediaBlocks}
+                      onRemove={removeMediaBlock}
                     />
                     <textarea
                       value={input}
@@ -361,7 +365,7 @@ export function Thread() {
                       >
                         <Plus className="size-5 text-gray-600" />
                         <span className="text-sm text-gray-600">
-                          Upload PDF or Image
+                          Upload image, PDF or CSV
                         </span>
                       </Label>
                       <input
@@ -369,7 +373,7 @@ export function Thread() {
                         type="file"
                         onChange={handleFileUpload}
                         multiple
-                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/csv"
                         className="hidden"
                       />
                       {stream.isLoading ? (
@@ -411,7 +415,7 @@ export function Thread() {
                 <XIcon className="size-5" />
               </button>
             </div>
-            <ArtifactContent className="relative flex-grow" />
+            <ArtifactContent className="relative flex-grow" /> 
           </div>
         </div>
       )}

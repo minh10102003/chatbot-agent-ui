@@ -1,20 +1,24 @@
+// src/app/AppContentClient.tsx
 'use client';
-import React from 'react';
-import ClientProviders from '@/components/ClientProviders';
+import React, { Suspense } from 'react';
+import { Toaster } from '@/components/ui/sonner';
+import { Thread } from '@/components/thread';
 import { ThreadProvider } from '@/providers/Thread';
 import { StreamProvider } from '@/providers/Stream';
 import { ArtifactProvider } from '@/components/thread/artifact';
 
 export default function AppContentClient() {
   return (
-    <ClientProviders>
+    <Suspense fallback={<div>Loading app…</div>}>
+      <Toaster />
       <ThreadProvider>
         <StreamProvider>
           <ArtifactProvider>
-            {/* UI chính của app ở đây */}
+            {/* Thread bao gồm cả phần message list và input box */}
+            <Thread />
           </ArtifactProvider>
         </StreamProvider>
       </ThreadProvider>
-    </ClientProviders>
+    </Suspense>
   );
 }

@@ -1,8 +1,11 @@
+"use client";
+
 import React from "react";
-import { File, Image as ImageIcon, X as XIcon } from "lucide-react";
+import { File as FileIcon, X as XIcon } from "lucide-react";
 import type { Base64ContentBlock } from "@langchain/core/messages";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+
 export interface MultimodalPreviewProps {
   block: Base64ContentBlock;
   removable?: boolean;
@@ -18,7 +21,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
   className,
   size = "md",
 }) => {
-  // Image block
+  // IMAGE block
   if (
     block.type === "image" &&
     block.source_type === "base64" &&
@@ -26,19 +29,19 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     block.mime_type.startsWith("image/")
   ) {
     const url = `data:${block.mime_type};base64,${block.data}`;
-    let imgClass: string = "rounded-md object-cover h-16 w-16 text-lg";
-    if (size === "sm") imgClass = "rounded-md object-cover h-10 w-10 text-base";
-    if (size === "lg") imgClass = "rounded-md object-cover h-24 w-24 text-xl";
+    let imgClass = "rounded-md object-cover h-16 w-16";
+    if (size === "sm") imgClass = "rounded-md object-cover h-10 w-10";
+    if (size === "lg") imgClass = "rounded-md object-cover h-24 w-24";
     return (
       <div className={cn("relative inline-block", className)}>
         <Image
           src={url}
           alt={String(block.metadata?.name || "uploaded image")}
           className={imgClass}
-          width={size === "sm" ? 16 : size === "md" ? 32 : 48}
-          height={size === "sm" ? 16 : size === "md" ? 32 : 48}
+          width={size === "sm" ? 40 : size === "md" ? 64 : 96}
+          height={size === "sm" ? 40 : size === "md" ? 64 : 96}
         />
-        {removable && (
+        {removable && onRemove && (
           <button
             type="button"
             className="absolute top-1 right-1 z-10 rounded-full bg-gray-500 text-white hover:bg-gray-700"
@@ -64,24 +67,22 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
       <div
         className={cn(
           "relative flex items-start gap-2 rounded-md border bg-gray-100 px-3 py-2",
-          className,
+          className
         )}
       >
-        <div className="flex flex-shrink-0 flex-col items-start justify-start">
-          <File
-            className={cn(
-              "text-teal-700",
-              size === "sm" ? "h-5 w-5" : "h-7 w-7",
-            )}
-          />
-        </div>
+        <FileIcon
+          className={cn(
+            "text-teal-700",
+            size === "sm" ? "h-5 w-5" : "h-7 w-7"
+          )}
+        />
         <span
           className={cn("min-w-0 flex-1 text-sm break-all text-gray-800")}
           style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}
         >
           {String(filename)}
         </span>
-        {removable && (
+        {removable && onRemove && (
           <button
             type="button"
             className="ml-2 self-start rounded-full bg-gray-200 p-1 text-teal-700 hover:bg-gray-300"
@@ -95,17 +96,59 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     );
   }
 
-  // Fallback for unknown types
+  // CSV block
+  if (
+    block.type === "file" &&
+    block.source_type === "base64" &&
+    (block.mime_type === "text/csv" ||
+      String(block.metadata?.filename || "").toLowerCase().endsWith(".csv"))
+  ) {
+    const filename =
+      block.metadata?.filename || block.metadata?.name || "CSV file";
+    return (
+      <div
+        className={cn(
+          "relative flex items-start gap-2 rounded-md border bg-gray-100 px-3 py-2",
+          className
+        )}
+      >
+        <FileIcon
+          className={cn(
+            "text-green-700",
+            size === "sm" ? "h-5 w-5" : "h-7 w-7"
+          )}
+        />
+        <span
+          className={cn("min-w-0 flex-1 text-sm break-all text-gray-800")}
+          style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}
+        >
+          {String(filename)}
+        </span>
+        {removable && onRemove && (
+          <button
+            type="button"
+            className="ml-2 self-start rounded-full bg-gray-200 p-1 text-green-700 hover:bg-gray-300"
+            onClick={onRemove}
+            aria-label="Remove CSV"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // FALLBACK cho các type khác
   return (
     <div
       className={cn(
         "flex items-center gap-2 rounded-md border bg-gray-100 px-3 py-2 text-gray-500",
-        className,
+        className
       )}
     >
-      <File className="h-5 w-5 flex-shrink-0" />
+      <FileIcon className="h-5 w-5 flex-shrink-0" />
       <span className="truncate text-xs">Unsupported file type</span>
-      {removable && (
+      {removable && onRemove && (
         <button
           type="button"
           className="ml-2 rounded-full bg-gray-200 p-1 text-gray-500 hover:bg-gray-300"
