@@ -253,7 +253,7 @@ export function Thread() {
       <div className="flex-1 flex flex-col h-full min-w-0">
         {/* Header - fixed height */}
         {!chatStarted && (
-          <div className="flex-shrink-0 h-16 flex items-center justify-center border-b bg-background px-4">
+          <div className="flex-shrink-0 h-12 flex items-center justify-center border-b bg-background px-4">
             <LangGraphLogoSVG className="h-6 flex-shrink-0" />
             <h1 className="text-xl font-semibold tracking-tight ml-2">
               Agent Data Chat
