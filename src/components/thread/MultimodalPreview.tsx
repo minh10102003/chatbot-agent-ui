@@ -1,3 +1,4 @@
+// src/components/thread/MultimodalPreview.tsx
 "use client";
 
 import React from "react";
@@ -6,8 +7,17 @@ import type { Base64ContentBlock } from "@langchain/core/messages";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
+/**
+ * Kiểu riêng cho block CSV dưới dạng text.
+ */
+interface CsvTextBlock {
+  type: "text";
+  text: string;
+  metadata: { filename: string };
+}
+
 export interface MultimodalPreviewProps {
-  block: Base64ContentBlock;
+  block: Base64ContentBlock | CsvTextBlock;
   removable?: boolean;
   onRemove?: () => void;
   className?: string;
@@ -21,14 +31,15 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
   className,
   size = "md",
 }) => {
-  // IMAGE block
+  // 1. IMAGE block
   if (
-    block.type === "image" &&
-    block.source_type === "base64" &&
-    typeof block.mime_type === "string" &&
-    block.mime_type.startsWith("image/")
+    (block as Base64ContentBlock).type === "image" &&
+    (block as Base64ContentBlock).source_type === "base64" &&
+    typeof (block as Base64ContentBlock).mime_type === "string" &&
+    (block as Base64ContentBlock).mime_type?.startsWith("image/")
   ) {
-    const url = `data:${block.mime_type};base64,${block.data}`;
+    const b = block as Base64ContentBlock;
+    const url = `data:${b.mime_type};base64,${b.data}`;
     let imgClass = "rounded-md object-cover h-16 w-16";
     if (size === "sm") imgClass = "rounded-md object-cover h-10 w-10";
     if (size === "lg") imgClass = "rounded-md object-cover h-24 w-24";
@@ -36,10 +47,10 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
       <div className={cn("relative inline-block", className)}>
         <Image
           src={url}
-          alt={String(block.metadata?.name || "uploaded image")}
+          alt={String(b.metadata?.name ?? "uploaded image")}
           className={imgClass}
-          width={size === "sm" ? 40 : size === "md" ? 64 : 96}
-          height={size === "sm" ? 40 : size === "md" ? 64 : 96}
+          width={size === "sm" ? 16 : size === "md" ? 32 : 48}
+          height={size === "sm" ? 16 : size === "md" ? 32 : 48}
         />
         {removable && onRemove && (
           <button
@@ -55,14 +66,16 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     );
   }
 
-  // PDF block
+  // 2. PDF block
   if (
-    block.type === "file" &&
-    block.source_type === "base64" &&
-    block.mime_type === "application/pdf"
+    (block as Base64ContentBlock).type === "file" &&
+    (block as Base64ContentBlock).source_type === "base64" &&
+    (block as Base64ContentBlock).mime_type === "application/pdf"
   ) {
-    const filename =
-      block.metadata?.filename || block.metadata?.name || "PDF file";
+    const b = block as Base64ContentBlock;
+    const filename = String(
+      b.metadata?.filename ?? b.metadata?.name ?? "PDF file"
+    );
     return (
       <div
         className={cn(
@@ -80,7 +93,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
           className={cn("min-w-0 flex-1 text-sm break-all text-gray-800")}
           style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}
         >
-          {String(filename)}
+          {filename}
         </span>
         {removable && onRemove && (
           <button
@@ -96,15 +109,10 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     );
   }
 
-  // CSV block
-  if (
-    block.type === "file" &&
-    block.source_type === "base64" &&
-    (block.mime_type === "text/csv" ||
-      String(block.metadata?.filename || "").toLowerCase().endsWith(".csv"))
-  ) {
-    const filename =
-      block.metadata?.filename || block.metadata?.name || "CSV file";
+  // 3. CSV block dưới dạng text
+  if ((block as CsvTextBlock).type === "text") {
+    const c = block as CsvTextBlock;
+    const filename = String(c.metadata.filename);
     return (
       <div
         className={cn(
@@ -122,7 +130,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
           className={cn("min-w-0 flex-1 text-sm break-all text-gray-800")}
           style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}
         >
-          {String(filename)}
+          {filename}
         </span>
         {removable && onRemove && (
           <button
@@ -138,7 +146,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     );
   }
 
-  // FALLBACK cho các type khác
+  // 4. Fallback
   return (
     <div
       className={cn(

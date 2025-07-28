@@ -42,6 +42,11 @@ import {
   useArtifactContext,
 } from "./artifact";
 
+// MỚI: import client + API key để cập nhật metadata.title
+import { createClient } from "@/providers/client";
+import { getApiKey } from "@/lib/api-key";
+import { generateChatTitle } from "@/lib/smart-title-service";
+
 // Scroll/Stick to bottom logic
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -79,28 +84,6 @@ function ScrollToBottom(props: { className?: string }) {
   );
 }
 
-// function OpenGitHubRepo() {
-//   return (
-//     <TooltipProvider>
-//       <Tooltip>
-//         <TooltipTrigger asChild>
-//           <a
-//             href="https://github.com/langchain-ai/agent-chat-ui"
-//             target="_blank"
-//             className="flex items-center justify-center"
-//           >
-//             <LangGraphLogoSVG width={24} height={24} />
-//           </a>
-//         </TooltipTrigger>
-//         <TooltipContent side="left">
-//           <p>Open GitHub repo</p>
-//         </TooltipContent>
-//       </Tooltip>
-//     </TooltipProvider>
-//   );
-// }
-
-// MAIN EXPORT
 export function Thread() {
   const [artifactContext, setArtifactContext] = useArtifactContext();
   const [artifactOpen, closeArtifact] = useArtifactOpen();
@@ -133,6 +116,12 @@ export function Thread() {
   const isLoading = stream.isLoading;
 
   const lastError = useRef<string | undefined>(undefined);
+
+  // MỚI: khởi tạo client để update title
+  const [apiUrl] = useQueryState("apiUrl");
+  const client = apiUrl
+    ? createClient(apiUrl, getApiKey() ?? undefined)
+    : null;
 
   const setThreadId = (id: string | null) => {
     _setThreadId(id);
@@ -180,7 +169,8 @@ export function Thread() {
     prevMessageLength.current = messages.length;
   }, [messages]);
 
-  const handleSubmit = (e: FormEvent) => {
+  // MỚI: handleSubmit bây giờ async để đợi update title
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
       return;
@@ -196,10 +186,10 @@ export function Thread() {
     };
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
-
     const context =
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
 
+    // 1) Gửi tin nhắn trước
     stream.submit(
       { messages: [...toolMessages, newHumanMessage], context },
       {
@@ -216,11 +206,79 @@ export function Thread() {
       }
     );
 
+    // 2) Nếu đây là tin nhắn đầu tiên của thread mới, tạo smart title
+    if (client && !threadId) {
+      try {
+        // Lấy text từ tin nhắn đầu tiên
+        const arr = newHumanMessage.content as any[];
+        const firstTextBlock = arr.find(
+          (c: any) => c.type === "text"
+        ) as { text: string } | undefined;
+        const messageText = firstTextBlock?.text ?? "";
+        
+        if (messageText.trim()) {
+          console.log(`Generating smart title for: "${messageText.slice(0, 50)}${messageText.length > 50 ? '...' : ''}"`);
+          
+          // Tạo smart title (không dùng AI để tiết kiệm cost và tăng tốc độ)
+          const smartTitle = await generateChatTitle(
+            messageText,
+            apiUrl!,
+            getApiKey() ?? undefined,
+            { 
+              useAI: true, // BẬT AI để tạo title thông minh hơn
+              forceNew: false 
+            }
+          );
+          
+          console.log(`Generated smart title: "${smartTitle}"`);
+          
+          // Cập nhật thread với title mới
+          await client.threads.update(threadId!, {
+            metadata: { title: smartTitle },
+          });
+          
+          // Hiển thị thông báo thành công (tùy chọn)
+          // toast.success(`Đã đặt tên: "${smartTitle}"`);
+          
+        } else {
+          // Nếu không có text, dùng title mặc định
+          const defaultTitle = `Đoạn chat ${new Date().toLocaleTimeString()}`;
+          await client.threads.update(threadId!, {
+            metadata: { title: defaultTitle },
+          });
+        }
+        
+      } catch (err) {
+        console.error("Failed to generate smart title:", err);
+        
+        // Fallback: dùng snippet như cũ
+        try {
+          const arr = newHumanMessage.content as any[];
+          const firstTextBlock = arr.find(
+            (c: any) => c.type === "text"
+          ) as { text: string } | undefined;
+          const raw = firstTextBlock?.text ?? "";
+          const snippet =
+            raw.length > 30 ? raw.slice(0, 30).trim() + "…" : raw.trim() || "Cuộc trò chuyện";
+
+          await client.threads.update(threadId!, {
+            metadata: { title: snippet },
+          });
+          
+          console.log(`Fallback to snippet title: "${snippet}"`);
+        } catch (updateErr) {
+          console.error("Failed to update thread title with fallback:", updateErr);
+        }
+      }
+    }
+
     setInput("");
     setContentBlocks([]);
   };
 
-  const handleRegenerate = (parentCheckpoint: Checkpoint | null | undefined) => {
+  const handleRegenerate = (
+    parentCheckpoint: Checkpoint | null | undefined
+  ) => {
     prevMessageLength.current = prevMessageLength.current - 1;
     setFirstTokenReceived(false);
     stream.submit(undefined, {
@@ -236,8 +294,7 @@ export function Thread() {
 
   // Lọc ra chỉ các Base64ContentBlock (hình ảnh hoặc file)
   const mediaBlocks: Base64ContentBlock[] = contentBlocks.filter(
-    (b): b is Base64ContentBlock =>
-      b.type === "image" || b.type === "file"
+    (b): b is Base64ContentBlock => b.type === "image" || b.type === "file"
   );
 
   // Hàm xóa block media theo index trong mediaBlocks
@@ -248,7 +305,7 @@ export function Thread() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* MAIN FLEX - không còn wrap card/khung lớn */}
+      {/* MAIN FLEX */}
       <div className="flex-1 flex flex-col justify-end w-full h-full">
         <StickToBottom className="flex-1 flex flex-col justify-end">
           <StickyToBottomContent
@@ -261,7 +318,9 @@ export function Thread() {
             content={
               <>
                 {messages
-                  .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
+                  .filter((m) =>
+                    !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)
+                  )
                   .map((message, index) =>
                     message.type === "human" ? (
                       <HumanMessage
@@ -293,7 +352,6 @@ export function Thread() {
             }
             footer={
               <div className="sticky bottom-0 flex flex-col items-center gap-8 w-full bg-background px-0 pb-8">
-                {/* Bỏ wrap, input full width luôn */}
                 {!chatStarted && (
                   <div className="flex items-center gap-3">
                     <LangGraphLogoSVG className="h-8 flex-shrink-0" />
@@ -321,6 +379,7 @@ export function Thread() {
                     <ContentBlocksPreview
                       blocks={mediaBlocks}
                       onRemove={removeMediaBlock}
+                      size="md"
                     />
                     <textarea
                       value={input}
@@ -405,7 +464,7 @@ export function Thread() {
           />
         </StickToBottom>
       </div>
-      {/* Artifact side panel nếu có */}
+
       {artifactOpen && (
         <div className="relative flex flex-col border-l bg-card h-full min-w-[30vw]">
           <div className="absolute inset-0 flex flex-col">
@@ -415,7 +474,7 @@ export function Thread() {
                 <XIcon className="size-5" />
               </button>
             </div>
-            <ArtifactContent className="relative flex-grow" /> 
+            <ArtifactContent className="relative flex-grow" />
           </div>
         </div>
       )}
