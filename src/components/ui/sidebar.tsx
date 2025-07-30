@@ -30,7 +30,7 @@ export function Sidebar({ className }: { className?: string }) {
     setThreadsLoading,
   } = useThreads();
   const [threadId, setThreadId] = useQueryState("threadId");
-  const [apiUrl] = useQueryState("apiUrl");
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://agent.grozone.vn";
 
   // track which thread's menu is open
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);

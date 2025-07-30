@@ -36,8 +36,8 @@ function getThreadSearchMetadata(
 }
 
 export function ThreadProvider({ children }: { children: ReactNode }) {
-  const [apiUrl] = useQueryState("apiUrl");
-  const [assistantId] = useQueryState("assistantId");
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://agent.grozone.vn";
+  const assistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID || "agent";
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
 

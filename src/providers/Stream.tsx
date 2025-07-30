@@ -155,101 +155,121 @@ const StreamSession = ({
   );
 };
 
-const DEFAULT_API_URL = "https://pdt-exchange-refurbished-lg.trycloudflare.com/";
+const DEFAULT_API_URL = "https://agent.grozone.vn";
 const DEFAULT_ASSISTANT_ID = "agent";
 
-export const StreamProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const envAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID;
+// export const StreamProvider: React.FC<{ children: ReactNode }> = ({
+//   children,
+// }) => {
+//   const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
+//   const envAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID;
 
-  const [apiUrl, setApiUrl] = useQueryState("apiUrl", {
-    defaultValue: envApiUrl || "",
-  });
-  const [assistantId, setAssistantId] = useQueryState("assistantId", {
-    defaultValue: envAssistantId || "",
-  });
+//   const [apiUrl, setApiUrl] = useQueryState("apiUrl", {
+//     defaultValue: envApiUrl || "",
+//   });
+//   const [assistantId, setAssistantId] = useQueryState("assistantId", {
+//     defaultValue: envAssistantId || "",
+//   });
 
-  const [apiKey, _setApiKey] = useState(() => getApiKey() || "");
-  const setApiKey = (key: string) => {
-    window.localStorage.setItem("lg:chat:apiKey", key);
-    _setApiKey(key);
-  };
+//   const [apiKey, _setApiKey] = useState(() => getApiKey() || "");
+//   const setApiKey = (key: string) => {
+//     window.localStorage.setItem("lg:chat:apiKey", key);
+//     _setApiKey(key);
+//   };
 
-  const finalApiUrl = apiUrl || envApiUrl;
-  const finalAssistantId = assistantId || envAssistantId;
+//   const finalApiUrl = apiUrl || envApiUrl;
+//   const finalAssistantId = assistantId || envAssistantId;
 
-  if (!finalApiUrl || !finalAssistantId) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center p-4">
-        {/* form nhập URL + ID */}
-        <div className="animate-in fade-in-0 zoom-in-95 bg-background flex max-w-3xl flex-col rounded-lg border shadow-lg">
-          <div className="mt-14 flex flex-col gap-2 border-b p-6">
-            <LangGraphLogoSVG className="h-7" />
-            <h1 className="text-xl font-semibold">Agent Data Chat</h1>
-            <p className="text-muted-foreground">
-              Please enter deployment URL & assistant/graph ID.
-            </p>
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.currentTarget as HTMLFormElement;
-              const fd = new FormData(form);
-              setApiUrl(fd.get("apiUrl") as string);
-              setApiKey(fd.get("apiKey") as string);
-              setAssistantId(fd.get("assistantId") as string);
-              form.reset();
-            }}
-            className="bg-muted/50 flex flex-col gap-6 p-6"
-          >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="apiUrl">Deployment URL</Label>
-              <Input
-                id="apiUrl"
-                name="apiUrl"
-                defaultValue={apiUrl || DEFAULT_API_URL}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="assistantId">Assistant / Graph ID</Label>
-              <Input
-                id="assistantId"
-                name="assistantId"
-                defaultValue={assistantId || DEFAULT_ASSISTANT_ID}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="apiKey">LangSmith API Key</Label>
-              <PasswordInput
-                id="apiKey"
-                name="apiKey"
-                defaultValue={apiKey}
-                placeholder="lsv2_pt_..."
-              />
-            </div>
-            <Button type="submit" size="lg">
-              Continue <ArrowRight className="size-5" />
-            </Button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+//   if (!finalApiUrl || !finalAssistantId) {
+//     return (
+//       <div className="flex min-h-screen w-full items-center justify-center p-4">
+//         {/* form nhập URL + ID */}
+//         <div className="animate-in fade-in-0 zoom-in-95 bg-background flex max-w-3xl flex-col rounded-lg border shadow-lg">
+//           <div className="mt-14 flex flex-col gap-2 border-b p-6">
+//             <LangGraphLogoSVG className="h-7" />
+//             <h1 className="text-xl font-semibold">Agent Data Chat</h1>
+//             <p className="text-muted-foreground">
+//               Please enter deployment URL & assistant/graph ID.
+//             </p>
+//           </div>
+//           <form
+//             onSubmit={(e) => {
+//               e.preventDefault();
+//               const form = e.currentTarget as HTMLFormElement;
+//               const fd = new FormData(form);
+//               setApiUrl(fd.get("apiUrl") as string);
+//               setApiKey(fd.get("apiKey") as string);
+//               setAssistantId(fd.get("assistantId") as string);
+//               form.reset();
+//             }}
+//             className="bg-muted/50 flex flex-col gap-6 p-6"
+//           >
+//             <div className="flex flex-col gap-2">
+//               <Label htmlFor="apiUrl">Deployment URL</Label>
+//               <Input
+//                 id="apiUrl"
+//                 name="apiUrl"
+//                 defaultValue={apiUrl || DEFAULT_API_URL}
+//                 required
+//               />
+//             </div>
+//             <div className="flex flex-col gap-2">
+//               <Label htmlFor="assistantId">Assistant / Graph ID</Label>
+//               <Input
+//                 id="assistantId"
+//                 name="assistantId"
+//                 defaultValue={assistantId || DEFAULT_ASSISTANT_ID}
+//                 required
+//               />
+//             </div>
+//             <div className="flex flex-col gap-2">
+//               <Label htmlFor="apiKey">LangSmith API Key</Label>
+//               <PasswordInput
+//                 id="apiKey"
+//                 name="apiKey"
+//                 defaultValue={apiKey}
+//                 placeholder="lsv2_pt_..."
+//               />
+//             </div>
+//             <Button type="submit" size="lg">
+//               Continue <ArrowRight className="size-5" />
+//             </Button>
+//           </form>
+//         </div>
+//       </div>
+//     );
+//   }
 
+//   return (
+//     <StreamSession
+//       apiKey={apiKey}
+//       apiUrl={finalApiUrl}
+//       assistantId={finalAssistantId}
+//     >
+//       {children}
+//     </StreamSession>
+//   );
+// };
+
+export const StreamProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Lấy luôn từ biến môi trường hoặc dùng mặc định
+  const apiKey = getApiKey() || null;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
+  const assistantId =
+    process.env.NEXT_PUBLIC_ASSISTANT_ID || DEFAULT_ASSISTANT_ID;
+
+  // Không còn form; khởi tạo StreamSession ngay lập tức
   return (
     <StreamSession
       apiKey={apiKey}
-      apiUrl={finalApiUrl}
-      assistantId={finalAssistantId}
+      apiUrl={apiUrl}
+      assistantId={assistantId}
     >
       {children}
     </StreamSession>
   );
 };
+
 
 export const useStreamContext = (): StreamContextType => {
   const ctx = useContext(StreamContext);

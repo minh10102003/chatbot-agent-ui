@@ -1,13 +1,15 @@
 /* Base markdown styles */
 .markdown-content code:not(pre code) {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
   padding: 0.2em 0.4em;
-  border-radius: 3px;
+  border-radius: 4px;
   font-size: 0.9em;
+  font-weight: 500;
 }
 
 .markdown-content a {
-  color: #0070f3;
+  color: hsl(var(--primary));
   text-decoration: none;
 }
 
@@ -16,30 +18,239 @@
 }
 
 .markdown-content blockquote {
-  border-left: 4px solid #ddd;
+  border-left: 4px solid hsl(var(--border));
   padding-left: 1rem;
-  color: #666;
+  color: hsl(var(--muted-foreground));
+  background-color: hsl(var(--muted));
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 6px;
 }
 
 .markdown-content pre {
   overflow-x: auto;
 }
 
+/* Enhanced Table Styles - OpenAI Inspired */
+.markdown-content .markdown-table,
 .markdown-content table {
-  border-collapse: collapse;
-  width: 100%;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  width: 100% !important;
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  margin: 2rem 0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
 }
 
+.markdown-content .markdown-th,
+.markdown-content th {
+  background: linear-gradient(135deg, hsl(var(--muted)) 0%, hsl(var(--muted)/0.8) 100%) !important;
+  color: hsl(var(--foreground)) !important;
+  padding: 16px 20px !important;
+  text-align: left !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  text-transform: none !important;
+  letter-spacing: 0.025em !important;
+  border-bottom: 2px solid hsl(var(--border)) !important;
+  border-right: 1px solid hsl(var(--border)/0.5) !important;
+  position: relative !important;
+}
+
+.markdown-content .markdown-th:first-child,
+.markdown-content th:first-child {
+  border-top-left-radius: 12px !important;
+}
+
+.markdown-content .markdown-th:last-child,
+.markdown-content th:last-child {
+  border-right: none !important;
+  border-top-right-radius: 12px !important;
+}
+
+.markdown-content .markdown-td,
+.markdown-content td {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  padding: 16px 20px !important;
+  text-align: left !important;
+  vertical-align: top !important;
+  border-bottom: 1px solid hsl(var(--border)/0.3) !important;
+  border-right: 1px solid hsl(var(--border)/0.3) !important;
+  transition: all 0.2s ease !important;
+  line-height: 1.6 !important;
+}
+
+.markdown-content .markdown-td:last-child,
+.markdown-content td:last-child {
+  border-right: none !important;
+}
+
+/* Enhanced hover and stripe effects */
+.markdown-content .markdown-tr:nth-child(even) .markdown-td,
+.markdown-content .markdown-tr:nth-child(even) td,
+.markdown-content tr:nth-child(even) .markdown-td,
+.markdown-content tr:nth-child(even) td {
+  background-color: hsl(var(--muted)/0.3) !important;
+}
+
+.markdown-content .markdown-tr:hover .markdown-td,
+.markdown-content .markdown-tr:hover td,
+.markdown-content tr:hover .markdown-td,
+.markdown-content tr:hover td {
+  background-color: hsl(var(--accent)/0.1) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+.markdown-content .markdown-tr:last-child .markdown-td,
+.markdown-content .markdown-tr:last-child td,
+.markdown-content tr:last-child .markdown-td,
+.markdown-content tr:last-child td {
+  border-bottom: none !important;
+}
+
+.markdown-content .markdown-tr:last-child .markdown-td:first-child,
+.markdown-content .markdown-tr:last-child td:first-child,
+.markdown-content tr:last-child .markdown-td:first-child,
+.markdown-content tr:last-child td:first-child {
+  border-bottom-left-radius: 12px !important;
+}
+
+.markdown-content .markdown-tr:last-child .markdown-td:last-child,
+.markdown-content .markdown-tr:last-child td:last-child,
+.markdown-content tr:last-child .markdown-td:last-child,
+.markdown-content tr:last-child td:last-child {
+  border-bottom-right-radius: 12px !important;
+}
+
+/* Enhanced list styles within table cells */
+.markdown-content .markdown-td ul,
+.markdown-content td ul {
+  margin: 0 !important;
+  padding-left: 1.2em !important;
+  list-style-type: disc !important;
+}
+
+.markdown-content .markdown-td ol,
+.markdown-content td ol {
+  margin: 0 !important;
+  padding-left: 1.2em !important;
+}
+
+.markdown-content .markdown-td li,
+.markdown-content td li {
+  margin: 0.3em 0 !important;
+  line-height: 1.5 !important;
+}
+
+.markdown-content .markdown-td p,
+.markdown-content td p {
+  margin: 0.5em 0 !important;
+}
+
+.markdown-content .markdown-td p:first-child,
+.markdown-content td p:first-child {
+  margin-top: 0 !important;
+}
+
+.markdown-content .markdown-td p:last-child,
+.markdown-content td p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Strong text in tables */
+.markdown-content .markdown-td strong,
+.markdown-content td strong {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600 !important;
+}
+
+/* Code in tables */
+.markdown-content .markdown-td code,
+.markdown-content td code {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  padding: 0.15em 0.3em !important;
+  border-radius: 3px !important;
+  font-size: 0.85em !important;
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+  .markdown-content .markdown-table,
+  .markdown-content table {
+    font-size: 0.8rem !important;
+    margin: 1.5rem 0 !important;
+  }
+  
+  .markdown-content .markdown-th,
+  .markdown-content .markdown-td,
+  .markdown-content th,
+  .markdown-content td {
+  border: 1px solid hsl(var(--border)/0.5) !important;
+}
+  
+  .markdown-content .markdown-th,
+  .markdown-content th {
+    font-size: 0.8rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .markdown-content .markdown-table,
+  .markdown-content table {
+    font-size: 0.75rem !important;
+  }
+  
+  .markdown-content .markdown-th,
+  .markdown-content .markdown-td,
+  .markdown-content th,
+  .markdown-content td {
+    padding: 10px 12px !important;
+  }
+}
+
+/* 1) Toàn bảng */
+.markdown-content table {
+  width: 100% !important;
+  border-collapse: collapse !important; /* gộp viền */
+  margin: 2rem 0 !important;
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important; /* viền ngoài */
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+/* 2) Tất cả ô header và data */
 .markdown-content th,
 .markdown-content td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important; /* viền ô */
+  padding: 0.75rem 1rem !important;
+  vertical-align: top !important;
 }
 
+/* 3) Header */
 .markdown-content th {
-  background-color: #f2f2f2;
+  background: linear-gradient(135deg, hsl(var(--muted)) 0%, hsl(var(--muted)/0.8) 100%) !important;
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600 !important;
+  border-bottom-width: 2px !important; /* viền đáy dày hơn */
+  border-bottom-color: rgba(255, 255, 255, 0.4) !important;
 }
 
-.markdown-content tr:nth-child(even) {
-  background-color: #f9f9f9;
+/* 4) Hover hàng lên để nổi viền */
+.markdown-content tr:hover th,
+.markdown-content tr:hover td {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 5) Stripe (tuỳ chọn) */
+.markdown-content tr:nth-child(even) td {
+  background-color: hsl(var(--muted)/0.1) !important;
 }

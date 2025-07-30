@@ -14,6 +14,7 @@ import { TooltipIconButton } from "@/components/thread/tooltip-icon-button";
 import { cn } from "@/lib/utils";
 
 import "katex/dist/katex.min.css";
+import rehypeRaw from "rehype-raw";
 
 interface CodeHeaderProps {
   language?: string;
@@ -151,39 +152,28 @@ const defaultComponents: any = {
       {...props}
     />
   ),
+  // Simplified table components - let CSS handle the styling
   table: ({ className, ...props }: { className?: string }) => (
     <table
-      className={cn(
-        "my-5 w-full border-separate border-spacing-0 overflow-y-auto",
-        className,
-      )}
+      className={cn("markdown-table", className)}
       {...props}
     />
   ),
   th: ({ className, ...props }: { className?: string }) => (
     <th
-      className={cn(
-        "bg-muted px-4 py-2 text-left font-bold first:rounded-tl-lg last:rounded-tr-lg [&[align=center]]:text-center [&[align=right]]:text-right",
-        className,
-      )}
+      className={cn("markdown-th", className)}
       {...props}
     />
   ),
   td: ({ className, ...props }: { className?: string }) => (
     <td
-      className={cn(
-        "border-b border-l px-4 py-2 text-left last:border-r [&[align=center]]:text-center [&[align=right]]:text-right",
-        className,
-      )}
+      className={cn("markdown-td", className)}
       {...props}
     />
   ),
   tr: ({ className, ...props }: { className?: string }) => (
     <tr
-      className={cn(
-        "m-0 border-b p-0 first:border-t [&:last-child>td:first-child]:rounded-bl-lg [&:last-child>td:last-child]:rounded-br-lg",
-        className,
-      )}
+      className={cn("markdown-tr", className)}
       {...props}
     />
   ),
@@ -243,15 +233,20 @@ const defaultComponents: any = {
   },
 };
 
-const MarkdownTextImpl: FC<{ children: string }> = ({ children }) => {
+const MarkdownTextImpl: FC<MarkdownTextImplProps> = ({ children }) => {
+  // Nếu children là mảng, nối thành chuỗi; nếu đã là string thì dùng nguyên
+  const markdown = Array.isArray(children) ? children.join("") : children;
+
   return (
     <div className="markdown-content">
       <ReactMarkdown
+        // Cho phép parse HTML thô (ví dụ <br>)
+        skipHtml={false}
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={defaultComponents}
       >
-        {children}
+        {markdown}
       </ReactMarkdown>
     </div>
   );
