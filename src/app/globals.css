@@ -1,73 +1,105 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-/* ----- Theme Variables ----- */
+/* ----- Gemini-inspired Theme Variables ----- */
 :root {
-  --background: #181823;
-  --foreground: #e5e7ef;
-  --card: #232335;
-  --card-foreground: #e5e7ef;
-  --popover: #232335;
-  --popover-foreground: #e5e7ef;
-  --primary: #a678fa;
-  --primary-foreground: #fff;
-  --secondary: #242447;
-  --secondary-foreground: #a678fa;
-  --muted: #282839;
-  --muted-foreground: #8e8ea0;
-  --accent: #313154;
-  --accent-foreground: #a678fa;
-  --destructive: #f87171;
-  --destructive-foreground: #fff;
-  --border: #282839;
-  --input: #232335;
-  --ring: #a678fa;
-  --radius: 1rem;
+  --background: #ffffff;
+  --foreground: #1f1f1f;
+  --card: #f8f9fa;
+  --card-foreground: #1f1f1f;
+  --popover: #ffffff;
+  --popover-foreground: #1f1f1f;
+  --primary: #1a73e8;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f3f4;
+  --secondary-foreground: #5f6368;
+  --muted: #f8f9fa;
+  --muted-foreground: #5f6368;
+  --accent: #e8f0fe;
+  --accent-foreground: #1a73e8;
+  --destructive: #ea4335;
+  --destructive-foreground: #ffffff;
+  --border: rgba(232, 234, 237, 0.6);
+  --input: #ffffff;
+  --ring: #1a73e8;
+  --radius: 0.75rem;
 
-  /* Sidebar */
-  --sidebar: #1b1b2c;
-  --sidebar-foreground: #e5e7ef;
-  --sidebar-primary: #a678fa;
-  --sidebar-primary-foreground: #fff;
-  --sidebar-accent: #242447;
-  --sidebar-accent-foreground: #a678fa;
-  --sidebar-border: #232335;
-  --sidebar-ring: #a678fa;
+  /* Sidebar - Gemini style */
+  --sidebar: #f8f9fa;
+  --sidebar-foreground: #3c4043;
+  --sidebar-primary: #1a73e8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8f0fe;
+  --sidebar-accent-foreground: #1a73e8;
+  --sidebar-border: rgba(232, 234, 237, 0.4);
+  --sidebar-ring: #1a73e8;
 }
 
-/* Dark mode (dùng class .dark cho html) */
+/* Light mode - Gemini theme */
+.light {
+  --background: #ffffff;
+  --foreground: #1f1f1f;
+  --card: #f8f9fa;
+  --card-foreground: #1f1f1f;
+  --popover: #ffffff;
+  --popover-foreground: #1f1f1f;
+  --primary: #1a73e8;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f3f4;
+  --secondary-foreground: #5f6368;
+  --muted: #f8f9fa;
+  --muted-foreground: #5f6368;
+  --accent: #e8f0fe;
+  --accent-foreground: #1a73e8;
+  --destructive: #ea4335;
+  --destructive-foreground: #ffffff;
+  --border: rgba(232, 234, 237, 0.6);
+  --input: #ffffff;
+  --ring: #1a73e8;
+  --radius: 0.75rem;
+  --sidebar: #f8f9fa;
+  --sidebar-foreground: #3c4043;
+  --sidebar-primary: #1a73e8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8f0fe;
+  --sidebar-accent-foreground: #1a73e8;
+  --sidebar-border: rgba(232, 234, 237, 0.4);
+  --sidebar-ring: #1a73e8;
+}
+
+/* Dark mode option - Gemini dark theme */
 .dark {
-  --background: #181823;
-  --foreground: #e5e7ef;
-  --card: #232335;
-  --card-foreground: #e5e7ef;
-  --popover: #232335;
-  --popover-foreground: #e5e7ef;
-  --primary: #a678fa;
-  --primary-foreground: #fff;
-  --secondary: #242447;
-  --secondary-foreground: #a678fa;
-  --muted: #282839;
-  --muted-foreground: #8e8ea0;
-  --accent: #313154;
-  --accent-foreground: #a678fa;
-  --destructive: #f87171;
-  --destructive-foreground: #fff;
-  --border: #282839;
-  --input: #232335;
-  --ring: #a678fa;
-  --radius: 1rem;
-  --sidebar: #1b1b2c;
-  --sidebar-foreground: #e5e7ef;
-  --sidebar-primary: #a678fa;
-  --sidebar-primary-foreground: #fff;
-  --sidebar-accent: #242447;
-  --sidebar-accent-foreground: #a678fa;
-  --sidebar-border: #232335;
-  --sidebar-ring: #a678fa;
+  --background: #202124;
+  --foreground: #e8eaed;
+  --card: #303134;
+  --card-foreground: #e8eaed;
+  --popover: #303134;
+  --popover-foreground: #e8eaed;
+  --primary: #8ab4f8;
+  --primary-foreground: #202124;
+  --secondary: #3c4043;
+  --secondary-foreground: #9aa0a6;
+  --muted: #3c4043;
+  --muted-foreground: #9aa0a6;
+  --accent: #1e3a8a;
+  --accent-foreground: #8ab4f8;
+  --destructive: #f28b82;
+  --destructive-foreground: #202124;
+  --border: rgba(95, 99, 104, 0.3);
+  --input: #303134;
+  --ring: #8ab4f8;
+  --radius: 0.75rem;
+  --sidebar: #202124;
+  --sidebar-foreground: #e8eaed;
+  --sidebar-primary: #8ab4f8;
+  --sidebar-primary-foreground: #202124;
+  --sidebar-accent: #1e3a8a;
+  --sidebar-accent-foreground: #8ab4f8;
+  --sidebar-border: rgba(95, 99, 104, 0.2);
+  --sidebar-ring: #8ab4f8;
 }
 
-/* Theme mapping for Tailwind (không bắt buộc nếu đã config trong tailwind.config.js) */
+/* Theme mapping for Tailwind */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -107,10 +139,49 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    height: 100vh; /* Thay min-height bằng height để fit chính xác */
-    overflow: hidden; /* Ngăn scroll toàn cục */
+    height: 100vh;
+    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  /* Subtle dividers and borders */
+  .border {
+    border-color: var(--border);
+  }
+  
+  .divide-y > :not([hidden]) ~ :not([hidden]) {
+    border-top-color: var(--border);
+  }
+  
+  .divide-x > :not([hidden]) ~ :not([hidden]) {
+    border-left-color: var(--border);
+  }
+}
+
+@layer components {
+  /* Soft divider utility */
+  .soft-divider {
+    border-color: rgba(var(--border-rgb), 0.1);
+    background: linear-gradient(90deg, transparent 0%, var(--border) 50%, transparent 100%);
+    height: 1px;
+    border: none;
+  }
+  
+  /* Subtle card borders */
+  .card-subtle {
+    border: 1px solid rgba(var(--border-rgb), 0.1);
+    background: var(--card);
+    backdrop-filter: blur(10px);
+  }
+  
+  /* Gentle shadows */
+  .shadow-gentle {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .shadow-gentle-hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.05);
   }
 }
 
@@ -121,4 +192,88 @@
   .shadow-inner-left {
     box-shadow: inset 9px 0 6px -1px rgb(0 0 0 / 0.02);
   }
+  
+  /* Gemini-specific utilities */
+  .gemini-gradient {
+    background: linear-gradient(135deg, #4285f4 0%, #34a853 25%, #fbbc04 50%, #ea4335 75%, #9c27b0 100%);
+  }
+  
+  .gemini-text-gradient {
+    background: linear-gradient(135deg, #4285f4 0%, #34a853 25%, #fbbc04 50%, #ea4335 75%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .gemini-shadow {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  }
+  
+  .gemini-shadow-hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Custom Scrollbar Styles */
+@layer base {
+  /* Webkit Scrollbar - For Chrome, Safari, Edge */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 4px;
+    opacity: 0.5;
+    transition: all 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+    opacity: 0.8;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox Scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+}
+
+/* Theme-specific scrollbar adjustments */
+:root {
+  --scrollbar-thumb: rgba(142, 142, 160, 0.5);
+  --scrollbar-thumb-hover: rgba(166, 120, 250, 0.8);
+  --border-rgb: 40, 40, 57;
+}
+
+.light {
+  --scrollbar-thumb: rgba(95, 99, 104, 0.5);
+  --scrollbar-thumb-hover: rgba(26, 115, 232, 0.8);
+  --border-rgb: 232, 234, 237;
+}
+
+.dark {
+  --scrollbar-thumb: rgba(154, 160, 166, 0.5);
+  --scrollbar-thumb-hover: rgba(138, 180, 248, 0.8);
+  --border-rgb: 95, 99, 104;
+}
+
+/* Apply custom scrollbar colors */
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }

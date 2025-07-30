@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Agent Data Chat",
+  title: "Quantica",
 };
 
 export const dynamic = 'force-dynamic';

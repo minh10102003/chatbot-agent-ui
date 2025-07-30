@@ -96,7 +96,7 @@ export function Sidebar({ className }: { className?: string }) {
       <div className="flex items-center justify-between px-4 py-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
           <LogoIcon className="size-7 text-primary" />
-          <span className="font-semibold text-lg">Chat AI</span>
+          <span className="font-semibold text-lg">Quantica</span>
         </div>
         <button
           onClick={handleNewThread}
