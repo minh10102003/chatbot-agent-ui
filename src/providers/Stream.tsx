@@ -1,4 +1,4 @@
-// lib/providers/Stream.ts
+// src/providers/Stream.tsx
 "use client";
 
 import React, {
@@ -7,9 +7,11 @@ import React, {
   ReactNode,
   useState,
   useEffect,
+  useMemo,
+  useCallback,
 } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
-import { type Message, type Thread } from "@langchain/langgraph-sdk";
+import { type Message } from "@langchain/langgraph-sdk";
 import {
   uiMessageReducer,
   isUIMessage,
@@ -18,33 +20,34 @@ import {
   type RemoveUIMessage,
 } from "@langchain/langgraph-sdk/react-ui";
 import { useQueryState } from "nuqs";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { LangGraphLogoSVG } from "@/components/icons/langgraph";
-import { Label } from "@/components/ui/label";
-import { ArrowRight } from "lucide-react";
-import { PasswordInput } from "@/components/ui/password-input";
+import { toast } from "sonner";
 import { getApiKey } from "@/lib/api-key";
 import { createClient } from "@/providers/client";
-import { useThreads } from "./Thread";               // ← đây
-import { toast } from "sonner";
-import { generateThreadTitle } from "@/lib/thread-utils";
+import { useThreads } from "./Thread";
+import MessageFilterService from "@/lib/message-filter";
+import { MessageFilter, ThreadTitleConfig } from "@/types/message-filter";
 
-export type StateType = { messages: Message[]; ui?: UIMessage[] };
+// --- New types for extended stream state ---
+export interface AgentOutcome {
+  return_values: { output: string };
+  log: string;
+  type: string;
+}
 
-const useTypedStream = useStream<
-  StateType,
-  {
-    UpdateType: {
-      messages?: Message[] | Message | string;
-      ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
-      context?: Record<string, unknown>;
-    };
-    CustomEventType: UIMessage | RemoveUIMessage;
-  }
->;
+export interface StreamState extends Record<string, unknown> {
+  messages: Message[];
+  ui?: UIMessage[];
+  agent_outcome?: AgentOutcome;
+  intermediate_steps?: unknown[];
+}
 
-type StreamContextType = ReturnType<typeof useTypedStream>;
+type StreamContextType = ReturnType<typeof useStream> & {
+  messageFilter: MessageFilterService;
+  updateFilterConfig: (filter: Partial<MessageFilter>) => void;
+  updateTitleConfig: (config: Partial<ThreadTitleConfig>) => void;
+  sendFilteredMessage: (content: string) => Promise<void>;
+};
+
 const StreamContext = createContext<StreamContextType | undefined>(undefined);
 
 async function sleep(ms = 4000) {
@@ -80,56 +83,152 @@ const StreamSession = ({
   const [threadId, setThreadId] = useQueryState("threadId");
   const { threads, getThreads, setThreads } = useThreads();
 
-  const streamValue = useTypedStream({
+  // Initialize message filter service
+  const [messageFilter] = useState(() => new MessageFilterService());
+
+  const streamValue = useStream({
     apiUrl,
     apiKey: apiKey ?? undefined,
     assistantId,
     threadId: threadId ?? null,
-    onCustomEvent: (event, options) => {
+
+    onCustomEvent: (event: any, options: any) => {
       if (isUIMessage(event) || isRemoveUIMessage(event)) {
-        options.mutate((prev) => ({
+        options.mutate((prev: any) => ({
           ...prev,
           ui: uiMessageReducer(prev.ui ?? [], event),
         }));
       }
     },
-    onThreadId: (id) => {
+    onThreadId: (id: string) => {
       setThreadId(id);
-      sleep()
-        .then(() => getThreads().then(setThreads))
-        .catch(console.error);
+      sleep().then(() => getThreads().then(setThreads)).catch(console.error);
     },
   });
 
-  // mỗi khi có message mới (độ dài messages thay đổi), tính title mới và update
+  // --- Generate thread title when agent finishes ---
+  useEffect(() => {
+    // Access data through streamValue.data or streamValue directly depending on the API
+    const data = (streamValue as any).data || streamValue;
+    const outcome = data?.agent_outcome;
+    
+    if (outcome?.type === "AgentFinish" && threadId) {
+      const msgs = data?.messages ?? [];
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        const newTitle = messageFilter.generateThreadTitle(msgs);
+        // Update local list immediately
+        setThreads((prev: any) =>
+          prev.map((t: any) =>
+            t.thread_id === threadId
+              ? { ...t, metadata: { ...t.metadata, title: newTitle } }
+              : t
+          )
+        );
+        // Persist to server
+        createClient(apiUrl, getApiKey() ?? undefined)
+          .threads.update(threadId, { metadata: { title: newTitle } })
+          .catch(console.error);
+      }
+    }
+  }, [(streamValue as any).data?.agent_outcome || (streamValue as any).agent_outcome, threadId, messageFilter, apiUrl, setThreads]);
+
+  // Simplified send function
+  const sendFilteredMessage = useCallback(
+    async (content: string): Promise<void> => {
+      try {
+        const filtered = messageFilter.filterMessage(content);
+        if (filtered.metadata.filtered) {
+          console.log("Message filtered before sending:", {
+            originalLength: filtered.metadata.originalLength,
+            newLength: filtered.content.length,
+            reasons: filtered.metadata.filterReasons,
+          });
+        }
+        
+        const methods = Object.keys(streamValue);
+        console.log("Available stream methods:", methods);
+        const possibleMethods = ["input", "send", "sendMessage", "message"];
+        
+        for (const methodName of possibleMethods) {
+          if (methodName in streamValue) {
+            const fn = (streamValue as any)[methodName];
+            if (typeof fn === "function") {
+              console.log(`Using method: ${methodName}`);
+              await fn(filtered.content);
+              return;
+            }
+          }
+        }
+        throw new Error("No suitable stream method found");
+      } catch (err) {
+        console.error("Failed to send filtered message:", err);
+        toast.error(
+          "Failed to send message. Check console for available methods."
+        );
+        throw err;
+      }
+    },
+    [streamValue, messageFilter]
+  );
+
+  // Auto-generate thread title (fallback logic)
   useEffect(() => {
     if (!threadId) return;
-    const msgs = streamValue.messages;
+    
+    // Access messages through different possible paths
+    const msgs = (streamValue as any).messages || (streamValue as any).data?.messages;
     if (!Array.isArray(msgs) || msgs.length === 0) return;
-
-    const newTitle = generateThreadTitle(msgs);
-
-    // 1) Cập nhật local state để sidebar re-render
-    setThreads((prev: Thread[]) =>
-      prev.map((t: Thread) =>
+    
+    // Only update title if agent hasn't finished yet
+    const data = (streamValue as any).data || streamValue;
+    const agentFinished = data?.agent_outcome?.type === "AgentFinish";
+    if (agentFinished) return;
+    
+    const shouldUpdateTitle = msgs.length <= 2 || msgs.length % 5 === 0;
+    if (!shouldUpdateTitle) return;
+    
+    const newTitle = messageFilter.generateThreadTitle(msgs);
+    setThreads((prev: any) =>
+      prev.map((t: any) =>
         t.thread_id === threadId
           ? { ...t, metadata: { ...t.metadata, title: newTitle } }
           : t
       )
     );
-
-    // 2) Persist lên server
-    (async () => {
+    
+    const timeout = setTimeout(async () => {
       try {
         const client = createClient(apiUrl, getApiKey() ?? undefined);
-        // theo SDK, signature là update(threadId, { metadata })
         await client.threads.update(threadId, { metadata: { title: newTitle } });
-      } catch (err) {
-        console.error("Failed to persist thread title", err);
+      } catch (e) {
+        console.error("Failed to persist thread title", e);
+        setThreads((prev: any) =>
+          prev.map((t: any) =>
+            t.thread_id === threadId
+              ? {
+                  ...t,
+                  metadata: {
+                    ...t.metadata,
+                    title: `Chat ${new Date().toLocaleTimeString()}`,
+                  },
+                }
+              : t
+          )
+        );
       }
-    })();
-  }, [threadId, streamValue.messages.length, apiUrl, setThreads]);
+    }, 1000);
+    
+    return () => clearTimeout(timeout);
+  }, [
+    (streamValue as any).messages?.length || (streamValue as any).data?.messages?.length,
+    (streamValue as any).data?.agent_outcome?.type || (streamValue as any).agent_outcome?.type,
+    threadId,
+    apiUrl,
+    setThreads,
+    messageFilter
+  ]);
 
+  // Health check for Graph server
   useEffect(() => {
     checkGraphStatus(apiUrl, apiKey).then((ok) => {
       if (!ok) {
@@ -148,8 +247,24 @@ const StreamSession = ({
     });
   }, [apiKey, apiUrl]);
 
+  // Compose context value
+  const contextValue = useMemo(
+    () => ({
+      ...streamValue,
+      messageFilter,
+      sendFilteredMessage,
+      updateFilterConfig: (cfg: Partial<MessageFilter>) => {
+        messageFilter.updateFilter(cfg);
+      },
+      updateTitleConfig: (cfg: Partial<ThreadTitleConfig>) => {
+        messageFilter.updateTitleConfig(cfg);
+      },
+    }),
+    [streamValue, messageFilter, sendFilteredMessage]
+  );
+
   return (
-    <StreamContext.Provider value={streamValue}>
+    <StreamContext.Provider value={contextValue}>
       {children}
     </StreamContext.Provider>
   );
@@ -158,122 +273,23 @@ const StreamSession = ({
 const DEFAULT_API_URL = "https://agent.grozone.vn";
 const DEFAULT_ASSISTANT_ID = "agent";
 
-// export const StreamProvider: React.FC<{ children: ReactNode }> = ({
-//   children,
-// }) => {
-//   const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
-//   const envAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID;
-
-//   const [apiUrl, setApiUrl] = useQueryState("apiUrl", {
-//     defaultValue: envApiUrl || "",
-//   });
-//   const [assistantId, setAssistantId] = useQueryState("assistantId", {
-//     defaultValue: envAssistantId || "",
-//   });
-
-//   const [apiKey, _setApiKey] = useState(() => getApiKey() || "");
-//   const setApiKey = (key: string) => {
-//     window.localStorage.setItem("lg:chat:apiKey", key);
-//     _setApiKey(key);
-//   };
-
-//   const finalApiUrl = apiUrl || envApiUrl;
-//   const finalAssistantId = assistantId || envAssistantId;
-
-//   if (!finalApiUrl || !finalAssistantId) {
-//     return (
-//       <div className="flex min-h-screen w-full items-center justify-center p-4">
-//         {/* form nhập URL + ID */}
-//         <div className="animate-in fade-in-0 zoom-in-95 bg-background flex max-w-3xl flex-col rounded-lg border shadow-lg">
-//           <div className="mt-14 flex flex-col gap-2 border-b p-6">
-//             <LangGraphLogoSVG className="h-7" />
-//             <h1 className="text-xl font-semibold">Agent Data Chat</h1>
-//             <p className="text-muted-foreground">
-//               Please enter deployment URL & assistant/graph ID.
-//             </p>
-//           </div>
-//           <form
-//             onSubmit={(e) => {
-//               e.preventDefault();
-//               const form = e.currentTarget as HTMLFormElement;
-//               const fd = new FormData(form);
-//               setApiUrl(fd.get("apiUrl") as string);
-//               setApiKey(fd.get("apiKey") as string);
-//               setAssistantId(fd.get("assistantId") as string);
-//               form.reset();
-//             }}
-//             className="bg-muted/50 flex flex-col gap-6 p-6"
-//           >
-//             <div className="flex flex-col gap-2">
-//               <Label htmlFor="apiUrl">Deployment URL</Label>
-//               <Input
-//                 id="apiUrl"
-//                 name="apiUrl"
-//                 defaultValue={apiUrl || DEFAULT_API_URL}
-//                 required
-//               />
-//             </div>
-//             <div className="flex flex-col gap-2">
-//               <Label htmlFor="assistantId">Assistant / Graph ID</Label>
-//               <Input
-//                 id="assistantId"
-//                 name="assistantId"
-//                 defaultValue={assistantId || DEFAULT_ASSISTANT_ID}
-//                 required
-//               />
-//             </div>
-//             <div className="flex flex-col gap-2">
-//               <Label htmlFor="apiKey">LangSmith API Key</Label>
-//               <PasswordInput
-//                 id="apiKey"
-//                 name="apiKey"
-//                 defaultValue={apiKey}
-//                 placeholder="lsv2_pt_..."
-//               />
-//             </div>
-//             <Button type="submit" size="lg">
-//               Continue <ArrowRight className="size-5" />
-//             </Button>
-//           </form>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <StreamSession
-//       apiKey={apiKey}
-//       apiUrl={finalApiUrl}
-//       assistantId={finalAssistantId}
-//     >
-//       {children}
-//     </StreamSession>
-//   );
-// };
-
-export const StreamProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Lấy luôn từ biến môi trường hoặc dùng mặc định
+export const StreamProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const apiKey = getApiKey() || null;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
-  const assistantId =
-    process.env.NEXT_PUBLIC_ASSISTANT_ID || DEFAULT_ASSISTANT_ID;
+  const assistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID || DEFAULT_ASSISTANT_ID;
 
-  // Không còn form; khởi tạo StreamSession ngay lập tức
   return (
-    <StreamSession
-      apiKey={apiKey}
-      apiUrl={apiUrl}
-      assistantId={assistantId}
-    >
+    <StreamSession apiKey={apiKey} apiUrl={apiUrl} assistantId={assistantId}>
       {children}
     </StreamSession>
   );
 };
 
-
 export const useStreamContext = (): StreamContextType => {
   const ctx = useContext(StreamContext);
-  if (!ctx) throw new Error("useStreamContext must be used within Provider");
+  if (!ctx) throw new Error("useStreamContext must be used within StreamProvider");
   return ctx;
 };
 
