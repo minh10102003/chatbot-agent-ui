@@ -41,6 +41,7 @@ import {
   ArtifactTitle,
   useArtifactContext,
 } from "./artifact";
+import { ChatInput } from "@/components/chat/ChatInput";
 
 // Custom scroll to bottom button
 function ScrollToBottomButton() {
@@ -96,17 +97,7 @@ export function Thread() {
     "hideToolCalls",
     parseAsBoolean.withDefault(false)
   );
-  const [input, setInput] = useState("");
-  const {
-    contentBlocks,
-    setContentBlocks,
-    handleFileUpload,
-    dropRef,
-    removeBlock,
-    resetBlocks,
-    dragOver,
-    handlePaste,
-  } = useFileUpload();
+  
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
@@ -160,7 +151,6 @@ export function Thread() {
   useEffect(() => {
     if (messages.length > prevMessageLength.current && messagesContainerRef.current) {
       setTimeout(() => {
-        // Scroll chỉ trong container messages, không ảnh hưởng toàn trang
         const container = messagesContainerRef.current;
         if (container) {
           container.scrollTo({
@@ -184,45 +174,6 @@ export function Thread() {
     prevMessageLength.current = messages.length;
   }, [messages]);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
-      return;
-    setFirstTokenReceived(false);
-
-    const newHumanMessage: Message = {
-      id: uuidv4(),
-      type: "human",
-      content: [
-        ...(input.trim().length > 0 ? [{ type: "text", text: input }] : []),
-        ...contentBlocks,
-      ] as Message["content"],
-    };
-
-    const toolMessages = ensureToolCallsHaveResponses(stream.messages);
-    const context =
-      Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
-
-    stream.submit(
-      { messages: [...toolMessages, newHumanMessage], context },
-      {
-        streamMode: ["values"],
-        optimisticValues: (prev) => ({
-          ...prev,
-          context,
-          messages: [
-            ...(prev.messages ?? []),
-            ...toolMessages,
-            newHumanMessage,
-          ],
-        }),
-      }
-    );
-
-    setInput("");
-    setContentBlocks([]);
-  };
-
   const handleRegenerate = (parentCheckpoint: Checkpoint | null | undefined) => {
     prevMessageLength.current = prevMessageLength.current - 1;
     setFirstTokenReceived(false);
@@ -236,16 +187,6 @@ export function Thread() {
   const hasNoAIOrToolMessages = !messages.find(
     (m) => m.type === "ai" || m.type === "tool"
   );
-
-  const mediaBlocks: Base64ContentBlock[] = contentBlocks.filter(
-    (b): b is Base64ContentBlock =>
-      b.type === "image" || b.type === "file"
-  );
-
-  const removeMediaBlock = (idx: number) => {
-    const blockToRemove = mediaBlocks[idx];
-    setContentBlocks((prev) => prev.filter((b) => b !== blockToRemove));
-  };
 
   return (
     <div className="h-screen w-full overflow-hidden bg-background flex">
@@ -261,7 +202,7 @@ export function Thread() {
           </div>
         )}
 
-        {/* Messages area - flexible, scrollable with transition */}
+        {/* Messages area */}
         <div 
           ref={messagesContainerRef}
           className={cn(
@@ -271,22 +212,6 @@ export function Thread() {
           style={{ scrollBehavior: 'smooth' }}
         >
           <div className="w-full px-4 min-h-full">
-            {/* Welcome message for new chat - centered
-            {!chatStarted && (
-              <div className="flex flex-col items-center justify-center h-full text-center transform transition-all duration-700 ease-in-out">
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  <LangGraphLogoSVG className="h-12 flex-shrink-0" />
-                </div>
-                <h2 className="text-3xl font-semibold tracking-tight mb-2">
-                  Tôi có thể giúp gì cho bạn?
-                </h2>
-                <p className="text-muted-foreground text-base opacity-80">
-                  Bắt đầu cuộc trò chuyện bằng cách nhập tin nhắn bên dưới
-                </p>
-              </div>
-            )} */}
-
-            {/* Messages - normal flow when chat started */}
             {chatStarted && (
               <div className="py-4 space-y-4 max-w-4xl mx-auto animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
                 {messages
@@ -334,118 +259,19 @@ export function Thread() {
                 )}
               </div>
             )}
-            {/* Invisible div to scroll to */}
             <div ref={messagesEndRef} />
           </div>
         </div>
 
-        {/* Input area - fixed height with proper padding and transition */}
+        {/* Input area */}
         <div className={cn(
-          "flex-shrink-0 border-t bg-background p-4 pb-12 transition-all duration-700 ease-in-out",
+          "flex-shrink-0 transition-all duration-700 ease-in-out",
           !chatStarted ? "transform translate-y-0" : ""
         )}>
-          <div className="w-full max-w-4xl mx-auto">
-            <div
-              ref={dropRef}
-              className={cn(
-                "bg-muted relative rounded-2xl shadow-sm transition-all max-w-3xl mx-auto duration-300 ease-in-out",
-                dragOver
-                  ? "border-primary border-2 border-dotted"
-                  : "border border-solid",
-                !chatStarted ? "shadow-lg border-primary/20" : ""
-              )}
-            >
-              <form
-                onSubmit={handleSubmit}
-                className="w-full grid grid-rows-[1fr_auto] gap-2"
-              >
-                <ContentBlocksPreview
-                  blocks={contentBlocks}
-                  onRemove={removeBlock}
-                  size="md"
-                />
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onPaste={handlePaste}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.metaKey &&
-                      !e.nativeEvent.isComposing
-                    ) {
-                      e.preventDefault();
-                      const el = e.target as HTMLElement | undefined;
-                      const form = el?.closest("form");
-                      form?.requestSubmit();
-                    }
-                  }}
-                  placeholder="Type your message..."
-                  className="field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none text-foreground min-h-[2.5rem] max-h-32"
-                />
-
-                <div className="flex items-center gap-6 p-2 pt-4">
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="render-tool-calls"
-                        checked={hideToolCalls ?? false}
-                        onCheckedChange={setHideToolCalls}
-                      />
-                      <Label
-                        htmlFor="render-tool-calls"
-                        className="text-sm text-gray-600"
-                      >
-                        Hide Tool Calls
-                      </Label>
-                    </div>
-                  </div>
-                  <Label
-                    htmlFor="file-input"
-                    className="flex cursor-pointer items-center gap-2"
-                  >
-                    <Plus className="size-5 text-gray-600" />
-                    <span className="text-sm text-gray-600">
-                      Upload image, PDF or CSV
-                    </span>
-                  </Label>
-                  <input
-                    id="file-input"
-                    type="file"
-                    onChange={handleFileUpload}
-                    multiple
-                    accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/csv"
-                    className="hidden"
-                  />
-                  {stream.isLoading ? (
-                    <Button
-                      key="stop"
-                      onClick={() => stream.stop()}
-                      className="ml-auto"
-                    >
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Cancel
-                    </Button>
-                  ) : (
-                    <Button
-                      type="submit"
-                      className="ml-auto shadow-md transition-all"
-                      disabled={
-                        isLoading ||
-                        (!input.trim() && contentBlocks.length === 0)
-                      }
-                    >
-                      Send
-                    </Button>
-                  )}
-                </div>
-              </form>
-            </div>
-          </div>
+          <ChatInput />
         </div>
 
-        {/* Scroll to bottom button - floating above input */}
+        {/* Scroll to bottom button */}
         {showScrollButton && (
           <Button
             variant="outline"

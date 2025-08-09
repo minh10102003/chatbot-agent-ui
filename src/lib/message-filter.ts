@@ -22,6 +22,8 @@ export default class MessageFilterService {
 
   // Lọc message trước khi gửi
   filterMessage(content: string): FilteredMessage {
+    console.log('[filterMessage] called with content:', content);
+
     const reasons: string[] = [];
     let filtered = false;
     let processedContent = content;
@@ -59,7 +61,7 @@ export default class MessageFilterService {
       }
     }
 
-    return {
+    const result = {
       content: processedContent,
       metadata: {
         originalLength: content.length,
@@ -67,10 +69,13 @@ export default class MessageFilterService {
         filterReasons: reasons.length > 0 ? reasons : undefined,
       },
     };
+    console.log('[filterMessage] result:', result);
+    return result;
   }
 
   // Lọc messages để gửi về BE
   filterMessagesForBackend(messages: Message[]): Message[] {
+    console.log('[filterMessagesForBackend] called with messages count:', messages.length);
     return messages
       .filter((msg) => msg.type === "human" || msg.type === "ai")
       .map((msg) => {
@@ -153,5 +158,6 @@ export default class MessageFilterService {
 
   updateTitleConfig(newConfig: Partial<ThreadTitleConfig>): void {
     this.titleConfig = { ...this.titleConfig, ...newConfig };
+    console.log('[MessageFilterService] titleConfig updated to:', this.titleConfig);
   }
 }

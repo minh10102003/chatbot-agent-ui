@@ -17,12 +17,18 @@ interface CsvTextBlock {
 }
 
 export interface MultimodalPreviewProps {
-  block: Base64ContentBlock | CsvTextBlock;
+  block: Base64ContentBlock | CsvTextBlock | Record<string, any>;
   removable?: boolean;
   onRemove?: () => void;
   className?: string;
   size?: "sm" | "md" | "lg";
 }
+
+/** Helpers: lấy field theo cả camelCase & snake_case */
+const getMime = (b: any) => b?.mimeType ?? b?.mime_type;
+const getSource = (b: any) => b?.source ?? b?.source_type;
+const getName = (b: any) =>
+  (b?.metadata?.name ?? b?.metadata?.filename) as string | undefined;
 
 export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
   block,
@@ -31,31 +37,41 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
   className,
   size = "md",
 }) => {
-  // 1. IMAGE block
+  const b: any = block;
+  const type = b?.type;
+  const mime = getMime(b);
+  const source = getSource(b);
+  const name = getName(b);
+
+  // 1) IMAGE (base64)
   if (
-    (block as Base64ContentBlock).type === "image" &&
-    (block as Base64ContentBlock).source_type === "base64" &&
-    typeof (block as Base64ContentBlock).mime_type === "string" &&
-    (block as Base64ContentBlock).mime_type?.startsWith("image/")
+    type === "image" &&
+    (source === "base64" || !!b?.data) &&
+    typeof mime === "string" &&
+    mime.startsWith("image/")
   ) {
-    const b = block as Base64ContentBlock;
-    const url = `data:${b.mime_type};base64,${b.data}`;
-    let imgClass = "rounded-md object-cover h-16 w-16";
-    if (size === "sm") imgClass = "rounded-md object-cover h-10 w-10";
-    if (size === "lg") imgClass = "rounded-md object-cover h-24 w-24";
+    const url = `data:${mime};base64,${b.data}`;
+    const box = size === "sm" ? 40 : size === "lg" ? 96 : 64; // px
+    const imgClass =
+      size === "sm"
+        ? "rounded-md object-cover h-10 w-10"
+        : size === "lg"
+        ? "rounded-md object-cover h-24 w-24"
+        : "rounded-md object-cover h-16 w-16";
+
     return (
       <div className={cn("relative inline-block", className)}>
         <Image
           src={url}
-          alt={String(b.metadata?.name ?? "uploaded image")}
+          alt={String(name ?? "uploaded image")}
           className={imgClass}
-          width={size === "sm" ? 16 : size === "md" ? 32 : 48}
-          height={size === "sm" ? 16 : size === "md" ? 32 : 48}
+          width={box}
+          height={box}
         />
         {removable && onRemove && (
           <button
             type="button"
-            className="absolute top-1 right-1 z-10 rounded-full bg-gray-500 text-white hover:bg-gray-700"
+            className="absolute top-1 right-1 z-10 rounded-full bg-gray-500/90 text-white hover:bg-gray-700"
             onClick={onRemove}
             aria-label="Remove image"
           >
@@ -66,16 +82,13 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     );
   }
 
-  // 2. PDF block
+  // 2) PDF (base64)
   if (
-    (block as Base64ContentBlock).type === "file" &&
-    (block as Base64ContentBlock).source_type === "base64" &&
-    (block as Base64ContentBlock).mime_type === "application/pdf"
+    type === "file" &&
+    (source === "base64" || !!b?.data) &&
+    mime === "application/pdf"
   ) {
-    const b = block as Base64ContentBlock;
-    const filename = String(
-      b.metadata?.filename ?? b.metadata?.name ?? "PDF file"
-    );
+    const filename = String(name ?? "file.pdf");
     return (
       <div
         className={cn(
@@ -85,7 +98,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
       >
         <FileIcon
           className={cn(
-            "text-teal-700",
+            "text-teal-700 flex-shrink-0",
             size === "sm" ? "h-5 w-5" : "h-7 w-7"
           )}
         />
@@ -109,10 +122,9 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     );
   }
 
-  // 3. CSV block dưới dạng text
-  if ((block as CsvTextBlock).type === "text") {
-    const c = block as CsvTextBlock;
-    const filename = String(c.metadata.filename);
+  // 3) CSV (text block do hook parse ra)
+  if (type === "text" && b?.metadata?.filename?.toLowerCase?.().endsWith(".csv")) {
+    const filename = String(b.metadata.filename);
     return (
       <div
         className={cn(
@@ -122,7 +134,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
       >
         <FileIcon
           className={cn(
-            "text-green-700",
+            "text-green-700 flex-shrink-0",
             size === "sm" ? "h-5 w-5" : "h-7 w-7"
           )}
         />
@@ -146,7 +158,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     );
   }
 
-  // 4. Fallback
+  // 4) Fallback
   return (
     <div
       className={cn(

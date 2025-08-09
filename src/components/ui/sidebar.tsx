@@ -1,4 +1,4 @@
-// src/providers/Sidebar.tsx
+// src/components/ui/Sidebar.tsx
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
@@ -17,7 +17,6 @@ import { useThreads } from "@/providers/Thread";
 import { useQueryState } from "nuqs";
 import { getApiKey } from "@/lib/api-key";
 import { createClient } from "@/providers/client";
-import { getThreadDisplayTitle } from "@/lib/thread-utils";
 
 const LogoIcon = AvatarIcon;
 
@@ -28,7 +27,10 @@ export function Sidebar({ className }: { className?: string }) {
     getThreads,
     setThreads,
     setThreadsLoading,
+    updateThreadTitle,
+    threadDisplayTitle, // <- lấy từ context
   } = useThreads();
+
   const [threadId, setThreadId] = useQueryState("threadId");
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://agent.grozone.vn";
 
@@ -72,11 +74,17 @@ export function Sidebar({ className }: { className?: string }) {
     if (!apiUrl) return;
     try {
       const client = createClient(apiUrl, getApiKey() ?? undefined);
+      const title = "New Chat";
+      // Chỉ metadata.title — KHÔNG có field "name"
       const newThread = await client.threads.create({
-        metadata: { title: "New Chat" },
+        metadata: { title },
       });
       setThreadId(newThread.thread_id);
-      setThreads((prev) => [newThread, ...prev]);
+      // Ép local có title ngay
+      setThreads((prev) => [
+        { ...newThread, metadata: { ...(newThread.metadata ?? {}), title } },
+        ...prev,
+      ]);
     } catch {
       alert("Không thể tạo đoạn chat mới!");
     }
@@ -148,7 +156,7 @@ export function Sidebar({ className }: { className?: string }) {
           ) : (
             <div className="space-y-1">
               {threads.slice(0, 20).map((thread) => {
-                const title = getThreadDisplayTitle(thread);
+                const title = threadDisplayTitle(thread);
                 const isActive = threadId === thread.thread_id;
 
                 return (
@@ -252,26 +260,7 @@ export function Sidebar({ className }: { className?: string }) {
                 onClick={async () => {
                   if (!editingThread || !newName.trim()) return;
                   try {
-                    const client = createClient(
-                      apiUrl!,
-                      getApiKey() ?? undefined
-                    );
-                    await client.threads.update(editingThread, {
-                      metadata: { title: newName.trim() },
-                    });
-                    setThreads((prev) =>
-                      prev.map((t) =>
-                        t.thread_id === editingThread
-                          ? {
-                              ...t,
-                              metadata: {
-                                ...t.metadata,
-                                title: newName.trim(),
-                              },
-                            }
-                          : t
-                      )
-                    );
+                    await updateThreadTitle(editingThread, newName.trim());
                   } catch {
                     alert("Đổi tên thất bại");
                   } finally {

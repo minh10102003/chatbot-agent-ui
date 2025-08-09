@@ -1,90 +1,67 @@
+// src/lib/thread-utils.ts
 import { Message, Thread } from "@langchain/langgraph-sdk";
 
-// Types for better type safety
-interface TextContentBlock {
-  type: "text";
-  text: string;
+/** ---- Type guards cho content blocks ---- */
+type TextBlock = { type: "text"; text: string };
+
+function isTextBlock(x: unknown): x is TextBlock {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    (x as any).type === "text" &&
+    typeof (x as any).text === "string"
+  );
 }
 
-interface ImageContentBlock {
-  type: "image" | "image_url";
-  image_url?: { url: string };
-  [key: string]: any;
-}
-
-interface FileContentBlock {
-  type: "file";
-  [key: string]: any;
-}
-
-type ContentBlock = TextContentBlock | ImageContentBlock | FileContentBlock;
-
-// Type guard để kiểm tra text content
-function isTextContent(item: any): item is TextContentBlock {
-  return item && typeof item === 'object' && item.type === "text" && typeof item.text === "string";
-}
-
-export function generateThreadTitle(messages: Message[]): string {
-  if (!messages || messages.length === 0) {
-    return "New Chat";
+/** Lấy text an toàn từ Message["content"] (string | array blocks | unknown) */
+export function textFromContent(c: unknown): string {
+  if (typeof c === "string") return c.trim();
+  if (Array.isArray(c)) {
+    const blk = c.find(isTextBlock);
+    if (blk) return blk.text.trim();
   }
-
-  // Lấy tin nhắn đầu tiên từ user
-  const firstUserMessage = messages.find((msg: Message) => msg.type === "human");
-  
-  if (firstUserMessage && firstUserMessage.content) {
-    let content = "";
-    
-    // Xử lý content array hoặc string
-    if (Array.isArray(firstUserMessage.content)) {
-      // Tìm content block đầu tiên có type là "text"
-      const textContent = firstUserMessage.content.find((item: any) => isTextContent(item));
-      if (textContent && isTextContent(textContent)) {
-        content = textContent.text;
-      }
-    } else if (typeof firstUserMessage.content === "string") {
-      content = firstUserMessage.content;
-    }
-    
-    // Tạo tiêu đề từ nội dung
-    if (content.trim()) {
-      // Cắt xuống 50 ký tự và thêm "..." nếu cần
-      const title = content.trim().substring(0, 50);
-      return title.length < content.trim().length ? `${title}...` : title;
-    }
-  }
-  
-  return "New Chat";
+  return "";
 }
 
+/** Sinh tiêu đề ngắn gọn từ mảng messages (ưu tiên human message đầu tiên) */
+export function makeTitleFromMessages(
+  messages: Message[] | undefined,
+  max = 50
+): string {
+  if (!Array.isArray(messages) || messages.length === 0) return "New Chat";
+  const firstHuman = messages.find((m) => m?.type === "human");
+  const text = textFromContent(firstHuman?.content);
+  if (!text) return "New Chat";
+  const t = text.slice(0, max);
+  return t.length < text.length ? `${t}…` : t;
+}
+
+/**
+ * Lấy title để hiển thị cho một Thread.
+ * - Ưu tiên metadata.title (nếu có)
+ * - Nếu không, thử suy ra từ messages trong thread.values
+ * - Cuối cùng fallback "New Chat"
+ */
 export function getThreadDisplayTitle(thread: Thread): string {
-  // Ưu tiên metadata.title nếu có
-  if (
-    thread.metadata &&
-    typeof thread.metadata === 'object' &&
-    'title' in thread.metadata &&
-    typeof thread.metadata.title === 'string' &&
-    thread.metadata.title !== thread.thread_id &&
-    !thread.metadata.title.includes("Cuộc trò chuyện")
-  ) {
-    return thread.metadata.title;
+  const metaTitle = (thread.metadata as any)?.title;
+  if (typeof metaTitle === "string" && metaTitle.trim()) {
+    return metaTitle.trim();
   }
 
-  // Nếu không có title hoặc title là default, tạo từ messages
-  // Ép kiểu thread.values về any để tránh lỗi kiểu
-  const valuesAny = thread.values as any;
+  // Thử lấy messages từ thread.values (tùy server sẽ có/không)
+  const valuesAny = (thread as any).values;
+  let messages: Message[] | undefined;
 
-  // Lấy messages nếu có
-  const messages: Message[] | undefined = Array.isArray(valuesAny)
-    // trường hợp values là mảng các record, tìm object có key 'messages'
-    ? valuesAny.find((v: any) => v && Array.isArray(v.messages))?.messages
-    // trường hợp values là object
-    : valuesAny?.messages;
-
-  if (messages && Array.isArray(messages)) {
-    return generateThreadTitle(messages);
+  if (Array.isArray(valuesAny)) {
+    messages = valuesAny.find(
+      (v: any) => v && Array.isArray(v.messages)
+    )?.messages as Message[] | undefined;
+  } else if (valuesAny && Array.isArray(valuesAny.messages)) {
+    messages = valuesAny.messages as Message[];
   }
 
-  // Fallback
-  return "New Chat";
+  return makeTitleFromMessages(messages);
 }
+
+/** alias để tương thích code cũ nếu có */
+export const generateThreadTitle = makeTitleFromMessages;

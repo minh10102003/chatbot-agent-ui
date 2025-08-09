@@ -233,6 +233,10 @@ const defaultComponents: any = {
   },
 };
 
+interface MarkdownTextImplProps {
+  children: string | string[];
+}
+
 const MarkdownTextImpl: FC<MarkdownTextImplProps> = ({ children }) => {
   // Nếu children là mảng, nối thành chuỗi; nếu đã là string thì dùng nguyên
   const markdown = Array.isArray(children) ? children.join("") : children;
