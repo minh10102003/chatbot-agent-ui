@@ -1,3 +1,4 @@
+// src/types/message-filter.ts
 export interface MessageFilter {
   minLength?: number;
   maxLength?: number;
@@ -19,7 +20,7 @@ export interface ThreadTitleConfig {
   enabled: boolean;
   maxLength: number;
   fallbackTemplate: string;
-  useAI: boolean;
+  useAI: boolean; // 🎯 Enable LangGraph AI naming by default
 }
 
 export const DEFAULT_MESSAGE_FILTER: MessageFilter = {
@@ -34,5 +35,5 @@ export const DEFAULT_TITLE_CONFIG: ThreadTitleConfig = {
   enabled: true,
   maxLength: 50,
   fallbackTemplate: 'Chat {{timestamp}}',
-  useAI: false,
+  useAI: true, // 🚀 CHANGED: Enable AI naming by default
 };

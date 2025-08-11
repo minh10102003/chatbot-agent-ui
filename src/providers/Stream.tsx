@@ -1,4 +1,4 @@
-// src/providers/Stream.tsx
+// src/providers/Stream.tsx - Key changes for namer integration
 "use client";
 
 import React, {
@@ -26,8 +26,8 @@ import { ensureToolCallsHaveResponses } from "@/lib/ensure-tool-responses";
 import MessageFilterService from "@/lib/message-filter";
 import { MessageFilter, ThreadTitleConfig } from "@/types/message-filter";
 import { useThreads } from "./Thread";
-// [NAMER] helper gọi experiment generate_name (assistant-scoped)
-import { generateThreadName } from "@/lib/namer";
+// 🎯 Import the fixed LangGraph namer
+import { generateThreadNameSmart } from "@/lib/namer";
 
 export interface AgentOutcome {
   return_values: { output: string };
@@ -56,6 +56,7 @@ const StreamContext = createContext<StreamContextType | undefined>(undefined);
 async function sleep(ms = 4000) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 async function checkGraphStatus(apiUrl: string, apiKey: string | null): Promise<boolean> {
   try {
     const res = await fetch(`${apiUrl}/info`, {
@@ -102,12 +103,32 @@ function normalizeBlock(blk: any): any {
 
   return blk;
 }
+
 function normalizeContent(content: string | Message["content"]): string | Message["content"] {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return content;
   return content.map((b: any) => normalizeBlock(b));
 }
-/** ----------------------------------------------------------- */
+
+/** -------------------- CONTENT EXTRACTION HELPERS -------------------- */
+type TextBlock = { type: "text"; text: string };
+function isTextBlock(block: unknown): block is TextBlock {
+  return (
+    !!block &&
+    typeof block === "object" &&
+    (block as any).type === "text" &&
+    typeof (block as any).text === "string"
+  );
+}
+
+function contentToText(c: Message["content"]): string {
+  if (typeof c === "string") return c.trim();
+  if (Array.isArray(c)) {
+    const t = c.find(isTextBlock);
+    if (t) return t.text.trim();
+  }
+  return "";
+}
 
 const StreamSession = ({
   children,
@@ -145,36 +166,123 @@ const StreamSession = ({
     },
   });
 
-  /*** 1) Đặt tiêu đề khi AgentFinish (fallback/giữ hành vi cũ) ***/
+  // 🎯 Configuration cho LangGraph namer
+  const NAMER_ASSISTANT_ID = 
+    process.env.NEXT_PUBLIC_NAMER_ASSISTANT_ID || 
+    "namer"; // 🚨 CHANGED: Default to "namer" instead of "agent"
+
+  const DEBUG_NAMER = process.env.NEXT_PUBLIC_DEBUG_NAMER === "1";
+
+  // 🔄 Smart naming function - LangGraph first, fallback to local
+  const generateSmartThreadName = useCallback(
+    async (messages: Message[]): Promise<string> => {
+      if (!messages.length) return messageFilter.generateThreadTitle(messages);
+
+      const firstHuman = messages.find((m) => m?.type === "human");
+      if (!firstHuman) return messageFilter.generateThreadTitle(messages);
+
+      const initialText = contentToText(firstHuman.content);
+      if (!initialText.trim()) return messageFilter.generateThreadTitle(messages);
+
+      // 🎯 Thử LangGraph namer trước với improved integration
+      if (messageFilter.titleConfig?.useAI !== false) {
+        try {
+          if (DEBUG_NAMER) {
+            console.info("[SmartNaming] Attempting LangGraph with:", {
+              apiUrl,
+              assistantId: NAMER_ASSISTANT_ID,
+              messagePreview: initialText.substring(0, 50) + "..."
+            });
+          }
+
+          const aiTitle = await generateThreadNameSmart(
+            {
+              apiUrl,
+              apiKey,
+              assistantId: NAMER_ASSISTANT_ID,
+            },
+            initialText
+          );
+          
+          if (aiTitle && aiTitle.trim()) {
+            if (DEBUG_NAMER) {
+              console.info("[SmartNaming] LangGraph success:", aiTitle);
+            }
+            return aiTitle;
+          } else {
+            if (DEBUG_NAMER) {
+              console.warn("[SmartNaming] LangGraph returned empty result");
+            }
+          }
+        } catch (error) {
+          console.warn("[SmartNaming] LangGraph failed, fallback to local:", error);
+        }
+      } else {
+        if (DEBUG_NAMER) {
+          console.info("[SmartNaming] AI naming disabled, using local");
+        }
+      }
+
+      // 🔧 Fallback to local hard-coded rules
+      const localTitle = messageFilter.generateThreadTitle(messages);
+      if (DEBUG_NAMER) {
+        console.info("[SmartNaming] Using local fallback:", localTitle);
+      }
+      return localTitle;
+    },
+    [apiUrl, apiKey, NAMER_ASSISTANT_ID, messageFilter, DEBUG_NAMER]
+  );
+
+  /*** 1) Đặt tiêu đề khi AgentFinish với smart naming ***/
   useEffect(() => {
     const data = (streamValue as any).data || streamValue;
     const outcome = data?.agent_outcome;
     if (outcome?.type === "AgentFinish" && threadId) {
       const msgs = data?.messages ?? [];
       if (Array.isArray(msgs) && msgs.length > 0) {
-        const newTitle = messageFilter.generateThreadTitle(msgs);
+        if (DEBUG_NAMER) {
+          console.info("[AgentFinish] Triggering smart naming for thread:", threadId);
+        }
 
-        // cập nhật UI
-        setThreads((prev: any) =>
-          prev.map((t: any) =>
-            t.thread_id === threadId
-              ? { ...t, metadata: { ...t.metadata, title: newTitle } }
-              : t
-          )
-        );
+        generateSmartThreadName(msgs).then((smartTitle) => {
+          // cập nhật UI
+          setThreads((prev: any) =>
+            prev.map((t: any) =>
+              t.thread_id === threadId
+                ? { ...t, metadata: { ...t.metadata, title: smartTitle } }
+                : t
+            )
+          );
 
-        // persist
-        updateThreadTitle(threadId, newTitle).catch(console.error);
+          // persist
+          updateThreadTitle(threadId, smartTitle).catch(console.error);
+        }).catch((error) => {
+          console.error("[AgentFinish] Smart naming failed:", error);
+          // Fallback to basic local naming
+          const fallbackTitle = messageFilter.generateThreadTitle(msgs);
+          setThreads((prev: any) =>
+            prev.map((t: any) =>
+              t.thread_id === threadId
+                ? { ...t, metadata: { ...t.metadata, title: fallbackTitle } }
+                : t
+            )
+          );
+          updateThreadTitle(threadId, fallbackTitle).catch(console.error);
+        });
       }
     }
   }, [
     (streamValue as any).data?.agent_outcome || (streamValue as any).agent_outcome,
     threadId,
+    generateSmartThreadName,
     messageFilter,
     setThreads,
     updateThreadTitle,
+    DEBUG_NAMER,
   ]);
 
+  // ... [REST OF THE CODE REMAINS THE SAME - sendFilteredMessage, effects, etc.]
+  
   /*** 2) Gửi tin nhắn có filter + normalize ***/
   const sendFilteredMessage = useCallback(
     async (
@@ -191,10 +299,7 @@ const StreamSession = ({
         if (Array.isArray(outgoingContent)) {
           const hasText = outgoingContent.some((b) => b && b.type === "text");
           if (!hasText) {
-            outgoingContent = [
-              { type: "text", text: "Please analyze the attached files." },
-              ...outgoingContent,
-            ];
+            outgoingContent = [{ type: "text", text: "" }, ...outgoingContent];
           }
         }
         outgoingContent = normalizeContent(outgoingContent) as any;
@@ -246,7 +351,7 @@ const StreamSession = ({
     [streamValue, messageFilter]
   );
 
-  /*** 3) Auto-title nhẹ khi agent CHƯA finish ***/
+  /*** 3) Auto-title nhẹ khi agent CHƯA finish với smart naming ***/
   useEffect(() => {
     if (!threadId) return;
     const msgs = (streamValue as any).messages || (streamValue as any).data?.messages;
@@ -259,42 +364,52 @@ const StreamSession = ({
     const shouldUpdateTitle = msgs.length <= 2 || msgs.length % 5 === 0;
     if (!shouldUpdateTitle) return;
 
-    const newTitle = messageFilter.generateThreadTitle(msgs);
-    setThreads((prev: any) =>
-      prev.map((t: any) =>
-        t.thread_id === threadId
-          ? { ...t, metadata: { ...t.metadata, title: newTitle } }
-          : t
-      )
-    );
+    // 🎯 Sử dụng smart naming cho progressive updates
+    generateSmartThreadName(msgs).then((smartTitle) => {
+      setThreads((prev: any) =>
+        prev.map((t: any) =>
+          t.thread_id === threadId
+            ? { ...t, metadata: { ...t.metadata, title: smartTitle } }
+            : t
+        )
+      );
 
-    const timeout = setTimeout(async () => {
-      try {
-        await updateThreadTitle(threadId, newTitle);
-      } catch (e) {
-        console.error("Failed to persist thread title", e);
-        setThreads((prev: any) =>
-          prev.map((t: any) =>
-            t.thread_id === threadId
-              ? {
-                  ...t,
-                  metadata: {
-                    ...t.metadata,
-                    title: `Chat ${new Date().toLocaleTimeString()}`,
-                  },
-                }
-              : t
-          )
-        );
-      }
-    }, 1000);
+      const timeout = setTimeout(async () => {
+        try {
+          await updateThreadTitle(threadId, smartTitle);
+        } catch (e) {
+          console.error("Failed to persist thread title", e);
+          // Fallback title on persist error
+          const fallbackTitle = messageFilter.generateThreadTitle(msgs);
+          setThreads((prev: any) =>
+            prev.map((t: any) =>
+              t.thread_id === threadId
+                ? { ...t, metadata: { ...t.metadata, title: fallbackTitle } }
+                : t
+            )
+          );
+        }
+      }, 1000);
 
-    return () => clearTimeout(timeout);
+      return () => clearTimeout(timeout);
+    }).catch((error) => {
+      console.error("Smart naming failed in progressive update:", error);
+      // Use local fallback immediately
+      const fallbackTitle = messageFilter.generateThreadTitle(msgs);
+      setThreads((prev: any) =>
+        prev.map((t: any) =>
+          t.thread_id === threadId
+            ? { ...t, metadata: { ...t.metadata, title: fallbackTitle } }
+            : t
+        )
+      );
+    });
   }, [
     (streamValue as any).messages?.length || (streamValue as any).data?.messages?.length,
     (streamValue as any).data?.agent_outcome?.type || (streamValue as any).agent_outcome?.type,
     threadId,
     setThreads,
+    generateSmartThreadName,
     messageFilter,
     updateThreadTitle,
   ]);
@@ -317,36 +432,13 @@ const StreamSession = ({
     });
   }, [apiKey, apiUrl]);
 
-  /*** 5) [PLAN 2.2] — Đặt tên thread khi xuất hiện tin nhắn HUMAN đầu tiên ***/
+  /*** 5) 🎯 Initial thread naming với LangGraph - chỉ chạy 1 lần per thread ***/
   const hasNamedRef = useRef(false);
 
-  // Reset flag mỗi khi đổi thread để namer chạy đúng 1 lần / thread
+  // Reset flag mỗi khi đổi thread
   useEffect(() => {
     hasNamedRef.current = false;
   }, [threadId]);
-
-  const NAMER_ASSISTANT_ID =
-    process.env.NEXT_PUBLIC_NAMER_ASSISTANT_ID ||
-    process.env.NEXT_PUBLIC_ASSISTANT_ID ||
-    "agent";
-
-  type TextBlock = { type: "text"; text: string };
-  function isTextBlock(block: unknown): block is TextBlock {
-    return (
-      !!block &&
-      typeof block === "object" &&
-      (block as any).type === "text" &&
-      typeof (block as any).text === "string"
-    );
-  }
-  function contentToText(c: Message["content"]): string {
-    if (typeof c === "string") return c.trim();
-    if (Array.isArray(c)) {
-      const t = c.find(isTextBlock);
-      if (t) return t.text.trim();
-    }
-    return "";
-  }
 
   useEffect(() => {
     if (!threadId || hasNamedRef.current) return;
@@ -360,54 +452,104 @@ const StreamSession = ({
     const firstHuman = msgs.find((m) => m?.type === "human");
     if (!firstHuman) return;
 
-    const initialText = contentToText(firstHuman.content);
-    if (!initialText) return;
-
     hasNamedRef.current = true;
 
-    (async () => {
-      try {
-        if (process.env.NEXT_PUBLIC_DEBUG_NAMER === "1") {
-          console.info("[StreamSession] generate name from:", initialText);
-        }
-        const apiKeyVal = getApiKey() ?? null;
+    if (DEBUG_NAMER) {
+      console.info("[InitialNaming] Starting for thread:", threadId, "messages:", msgs.length);
+    }
 
-        const remoteName =
-          (await generateThreadName(
-            { apiUrl, apiKey: apiKeyVal, assistantId: NAMER_ASSISTANT_ID },
-            initialText
-          )) || null;
-
-        // Nếu server không có experiment / trả null → không ép đặt lúc này (AgentFinish sẽ fallback)
-        if (!remoteName) return;
-
-        if (process.env.NEXT_PUBLIC_DEBUG_NAMER === "1") {
-          console.info("[StreamSession] generated name:", remoteName);
-        }
-
-        // Cập nhật UI
-        setThreads((prev: any) =>
-          prev.map((t: any) =>
-            t.thread_id === threadId
-              ? { ...t, metadata: { ...t.metadata, title: remoteName } }
-              : t
-          )
-        );
-
-        // Persist lên server
-        await updateThreadTitle(threadId, remoteName);
-      } catch (e) {
-        console.error("[StreamSession] generateThreadName failed:", e);
+    // 🚀 Sử dụng LangGraph smart naming cho initial thread
+    generateSmartThreadName(msgs).then((smartTitle) => {
+      if (DEBUG_NAMER) {
+        console.info("[InitialNaming] Generated title:", smartTitle);
       }
-    })();
+
+      // Update UI
+      setThreads((prev: any) =>
+        prev.map((t: any) =>
+          t.thread_id === threadId
+            ? { ...t, metadata: { ...t.metadata, title: smartTitle } }
+            : t
+        )
+      );
+
+      // Persist to backend
+      updateThreadTitle(threadId, smartTitle).catch((error) => {
+        console.error("[InitialNaming] Persist failed:", error);
+      });
+    }).catch((error) => {
+      console.error("[InitialNaming] Smart naming failed:", error);
+      
+      // Fallback to local naming
+      const fallbackTitle = messageFilter.generateThreadTitle(msgs);
+      setThreads((prev: any) =>
+        prev.map((t: any) =>
+          t.thread_id === threadId
+            ? { ...t, metadata: { ...t.metadata, title: fallbackTitle } }
+            : t
+        )
+      );
+      updateThreadTitle(threadId, fallbackTitle).catch(console.error);
+    });
   }, [
     threadId,
     (streamValue as any).messages?.length || (streamValue as any).data?.messages?.length,
-    apiUrl,
     setThreads,
     updateThreadTitle,
+    generateSmartThreadName,
+    DEBUG_NAMER,
   ]);
-  /*** [END PLAN 2.2] ***/
+
+  /*** 6) 🔄 Title regeneration on first message edit ***/
+  useEffect(() => {
+    if (!threadId) return;
+
+    const data = (streamValue as any).data || streamValue;
+    const shouldRegenerate = data?._shouldRegenerateTitle;
+    const editedContent = data?._editedFirstMessage;
+
+    if (shouldRegenerate && editedContent) {
+      if (DEBUG_NAMER) {
+        console.info("[TitleRegeneration] Triggered by message edit:", editedContent);
+      }
+
+      const msgs: Message[] =
+        ((streamValue as any).messages as Message[]) ??
+        ((streamValue as any).data?.messages as Message[]) ?? [];
+
+      if (msgs.length > 0) {
+        generateSmartThreadName(msgs).then((newTitle) => {
+          if (DEBUG_NAMER) {
+            console.info("[TitleRegeneration] New title:", newTitle);
+          }
+
+          // Update UI
+          setThreads((prev: any) =>
+            prev.map((t: any) =>
+              t.thread_id === threadId
+                ? { ...t, metadata: { ...t.metadata, title: newTitle } }
+                : t
+            )
+          );
+
+          // Persist to backend
+          updateThreadTitle(threadId, newTitle).catch((error) => {
+            console.error("[TitleRegeneration] Persist failed:", error);
+          });
+        }).catch((error) => {
+          console.error("[TitleRegeneration] Smart naming failed:", error);
+        });
+      }
+    }
+  }, [
+    (streamValue as any).data?._shouldRegenerateTitle,
+    (streamValue as any).data?._editedFirstMessage,
+    threadId,
+    generateSmartThreadName,
+    setThreads,
+    updateThreadTitle,
+    DEBUG_NAMER,
+  ]);
 
   const contextValue = useMemo(
     () => ({
@@ -419,6 +561,10 @@ const StreamSession = ({
       },
       updateTitleConfig: (cfg: Partial<ThreadTitleConfig>) => {
         messageFilter.updateTitleConfig(cfg);
+        // 🎯 Sync AI usage config
+        if ('useAI' in cfg) {
+          console.info('[TitleConfig] AI naming:', cfg.useAI ? 'enabled' : 'disabled');
+        }
       },
     }),
     [streamValue, messageFilter, sendFilteredMessage]

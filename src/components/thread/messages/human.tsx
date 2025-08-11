@@ -1,6 +1,6 @@
 import { useStreamContext } from "@/providers/Stream";
 import { Message } from "@langchain/langgraph-sdk";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { getContentString } from "../utils";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +30,7 @@ function EditableContent({
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={handleKeyDown}
       className="focus-visible:ring-0"
+      placeholder="Edit your message..."
     />
   );
 }
@@ -49,10 +50,20 @@ export function HumanMessage({
   const [value, setValue] = useState("");
   const contentString = getContentString(message.content);
 
-  const handleSubmitEdit = () => {
+  // 🎯 Handle message edit with potential title regeneration
+  const handleSubmitEdit = useCallback(() => {
     setIsEditing(false);
 
-    const newMessage: Message = { type: "human", content: value };
+    const newMessage: Message = { 
+      type: "human", 
+      content: value,
+      id: message.id // Preserve message ID for consistency
+    };
+
+    // Check if this is the first human message (for title regeneration)
+    const isFirstHuman = thread.messages.findIndex(m => m.type === "human") === 
+                         thread.messages.findIndex(m => m.id === message.id);
+
     thread.submit(
       { messages: [newMessage] },
       {
@@ -62,14 +73,30 @@ export function HumanMessage({
           const values = meta?.firstSeenState?.values;
           if (!values) return prev;
 
+          // 🎯 Update messages with edited content
+          const messagesArray = Array.isArray(values.messages) ? values.messages : [];
+          const updatedMessages = messagesArray.map(msg => 
+            msg.id === message.id ? newMessage : msg
+          ) ?? [newMessage];
+
           return {
             ...values,
-            messages: [...(values.messages ?? []), newMessage],
+            messages: updatedMessages,
+            // 🎯 Add metadata flag for title regeneration if first human message
+            ...(isFirstHuman && { 
+              _shouldRegenerateTitle: true,
+              _editedFirstMessage: value 
+            })
           };
         },
       },
     );
-  };
+
+    // 🎯 Optional: Immediate UI feedback for title change
+    if (isFirstHuman && process.env.NEXT_PUBLIC_DEBUG_NAMER === "1") {
+      console.info("[HumanMessage] Edited first human message, title may regenerate");
+    }
+  }, [value, message.id, thread, meta, parentCheckpoint]);
 
   return (
     <div className="group flex items-start gap-3 justify-end w-full">
@@ -79,11 +106,20 @@ export function HumanMessage({
         isEditing && "w-full"
       )}>
         {isEditing ? (
-          <EditableContent
-            value={value}
-            setValue={setValue}
-            onSubmit={handleSubmitEdit}
-          />
+          <div className="relative">
+            <EditableContent
+              value={value}
+              setValue={setValue}
+              onSubmit={handleSubmitEdit}
+            />
+            {/* 🎯 Helper text for editing */}
+            <div className="text-xs text-muted-foreground mt-1">
+              Press <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Cmd+Enter</kbd> to save
+              {thread.messages.findIndex(m => m.type === "human") === 
+               thread.messages.findIndex(m => m.id === message.id) && 
+               " (will regenerate thread title)"}
+            </div>
+          </div>
         ) : (
           <div className="flex flex-col gap-2 items-start">
             {/* Render images and files if present */}

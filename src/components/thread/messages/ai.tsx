@@ -24,14 +24,14 @@ function CustomComponent({
 }) {
   const artifact = useArtifact();
   const { values } = useStreamContext();
-  const customComponents = values.ui?.filter(
-    (ui) => ui.metadata?.message_id === message.id,
-  );
+  const customComponents = Array.isArray(values?.ui)
+    ? values.ui.filter((ui: any) => ui.metadata?.message_id === message.id)
+    : [];
 
   if (!customComponents?.length) return null;
   return (
     <Fragment key={message.id}>
-      {customComponents.map((customComponent) => (
+      {customComponents.map((customComponent: any) => (
         <LoadExternalComponent
           key={customComponent.id}
           stream={thread}
@@ -90,6 +90,36 @@ function Interrupt({
         <GenericInterruptView interrupt={interruptValue} />
       ) : null}
     </>
+  );
+}
+
+// 🎯 Debug component for title generation status
+function TitleGenerationDebugInfo({ 
+  isLastMessage, 
+  thread 
+}: { 
+  isLastMessage: boolean; 
+  thread: ReturnType<typeof useStreamContext>;
+}) {
+  const DEBUG_NAMER = process.env.NEXT_PUBLIC_DEBUG_NAMER === "1";
+  
+  if (!DEBUG_NAMER || !isLastMessage) return null;
+
+  const data = (thread as any)?.data || thread;
+  const agentOutcome = data?.agent_outcome;
+  const isAgentFinished = agentOutcome?.type === "AgentFinish";
+
+  return (
+    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+      <div className="font-medium">🎯 Title Generation Debug:</div>
+      <div>Agent Status: {isAgentFinished ? "✅ Finished" : "🔄 Running"}</div>
+      <div>Messages Count: {thread.messages?.length || 0}</div>
+      {isAgentFinished && (
+        <div className="text-green-600 font-medium">
+          → Smart title generation triggered
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -186,11 +216,19 @@ export function AssistantMessage({
                 thread={thread}
               />
             )}
+
             <Interrupt
               interruptValue={threadInterrupt?.value}
               isLastMessage={isLastMessage}
               hasNoAIOrToolMessages={hasNoAIOrToolMessages}
             />
+
+            {/* 🎯 Debug info for title generation */}
+            <TitleGenerationDebugInfo 
+              isLastMessage={isLastMessage} 
+              thread={thread} 
+            />
+
             <div
               className={cn(
                 "flex items-center gap-2 mt-2 transition-opacity",

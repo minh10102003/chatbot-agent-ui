@@ -1,84 +1,203 @@
 // src/lib/namer.ts
-import { createClient } from "@/providers/client";
+import { type Message } from "@langchain/langgraph-sdk";
 
-type GenNameOpts = {
+interface NamerConfig {
   apiUrl: string;
-  apiKey?: string | null;
-  assistantId?: string | null; // nếu server dùng assistant-scoped experiments
-};
-
-// Bật log debug khi cần: NEXT_PUBLIC_DEBUG_NAMER=1
-const DEBUG_NAMER = process.env.NEXT_PUBLIC_DEBUG_NAMER === "1";
-
-function pickTitle(out: any): string | null {
-  const candidates = [
-    out?.["Thread Name"],
-    out?.thread_name,
-    out?.name,
-    out?.title,
-  ];
-  const found = candidates.find(
-    (v) => typeof v === "string" && v.trim().length > 0
-  );
-  return found ? String(found).trim() : null;
+  apiKey: string | null;
+  assistantId: string;
 }
 
+interface NamerInput {
+  initial_message: string;
+  thread_name?: string; // This will be empty/null to request generation
+}
+
+interface NamerResponse {
+  thread_name: string;
+}
+
+/**
+ * Generate thread name using LangGraph namer assistant
+ * This calls the specific namer graph that expects both initial_message and thread_name inputs
+ */
 export async function generateThreadName(
-  { apiUrl, apiKey, assistantId }: GenNameOpts,
+  config: NamerConfig,
   initialMessage: string
 ): Promise<string | null> {
-  const client = createClient(apiUrl, apiKey ?? undefined);
-  const input = { "Initial Message": initialMessage };
-
   try {
-    // 1) Ưu tiên assistant-scoped (nếu server/SDK hỗ trợ)
-    const hasAssistantScoped =
-      (client as any).assistants?.experiments?.run &&
-      typeof (client as any).assistants.experiments.run === "function";
+    console.log('[LangGraphNamer] Calling namer with config:', {
+      apiUrl: config.apiUrl,
+      assistantId: config.assistantId,
+      hasApiKey: !!config.apiKey,
+      messageLength: initialMessage.length
+    });
 
-    if (hasAssistantScoped && assistantId) {
-      const res = await (client as any).assistants.experiments.run(
-        assistantId,
-        "generate_name",
-        { input }
-      );
-      const title = pickTitle(res?.output ?? {});
-      if (DEBUG_NAMER) console.info("[namer] assistant-scoped title:", title);
-      if (title) return title;
+    // Prepare the input that matches your LangGraph namer schema
+    const namerInput: NamerInput = {
+      initial_message: initialMessage.trim(),
+      thread_name: "" // Empty to request generation
+    };
+
+    const response = await fetch(`${config.apiUrl}/runs/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.apiKey && { 'X-Api-Key': config.apiKey }),
+      },
+      body: JSON.stringify({
+        assistant_id: config.assistantId,
+        input: namerInput,
+        stream_mode: ['values'], // Get the final values
+        config: {
+          configurable: {}
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    // 2) Thử global /experiments nếu server có
-    const hasGlobal =
-      (client as any).experiments?.run &&
-      typeof (client as any).experiments.run === "function";
-
-    if (hasGlobal) {
-      const res = await (client as any).experiments.run("generate_name", {
-        input,
-      });
-      const title = pickTitle(res?.output ?? {});
-      if (DEBUG_NAMER) console.info("[namer] global title:", title);
-      if (title) return title;
+    // Process the streaming response
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body reader available');
     }
-  } catch (e: any) {
-    const status = e?.status ?? e?.response?.status;
-    // 404 -> server không có route -> fallback im lặng
-    if (status === 404) {
-      if (DEBUG_NAMER) {
-        console.info(
-          "[namer] experiments endpoint not found on",
-          apiUrl,
-          "-> fallback local"
-        );
+
+    let finalResult: any = null;
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              // Look for the final result with thread_name
+              if (data && typeof data === 'object') {
+                if (data.thread_name) {
+                  finalResult = data;
+                }
+                // Also check if it's nested in other structures
+                else if (data.output && data.output.thread_name) {
+                  finalResult = data.output;
+                }
+                else if (data.return_values && data.return_values.thread_name) {
+                  finalResult = data.return_values;
+                }
+              }
+            } catch (parseError) {
+              console.debug('[LangGraphNamer] Failed to parse chunk:', parseError);
+            }
+          }
+        }
       }
+    } finally {
+      reader.releaseLock();
+    }
+
+    if (finalResult?.thread_name) {
+      const generatedName = finalResult.thread_name.trim();
+      console.log('[LangGraphNamer] Success:', generatedName);
+      return generatedName;
+    } else {
+      console.warn('[LangGraphNamer] No thread_name in final result:', finalResult);
       return null;
     }
-    // Lỗi khác bubble lên để nhìn rõ khi có vấn đề thực sự
-    throw e;
-  }
 
-  if (DEBUG_NAMER) {
-    console.info("[namer] experiments API not available -> fallback local");
+  } catch (error) {
+    console.error('[LangGraphNamer] Error:', error);
+    return null;
   }
-  return null;
+}
+
+/**
+ * Alternative approach using the direct invoke API (non-streaming)
+ * Use this if the streaming approach doesn't work with your namer graph
+ */
+export async function generateThreadNameDirect(
+  config: NamerConfig,
+  initialMessage: string
+): Promise<string | null> {
+  try {
+    console.log('[LangGraphNamerDirect] Calling namer directly');
+
+    const namerInput: NamerInput = {
+      initial_message: initialMessage.trim(),
+      thread_name: "" // Empty to request generation
+    };
+
+    const response = await fetch(`${config.apiUrl}/runs/invoke`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.apiKey && { 'X-Api-Key': config.apiKey }),
+      },
+      body: JSON.stringify({
+        assistant_id: config.assistantId,
+        input: namerInput,
+        config: {
+          configurable: {}
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('[LangGraphNamerDirect] Result:', result);
+
+    // Extract thread_name from various possible response structures
+    let threadName: string | null = null;
+    
+    if (result.thread_name) {
+      threadName = result.thread_name;
+    } else if (result.output?.thread_name) {
+      threadName = result.output.thread_name;
+    } else if (result.return_values?.thread_name) {
+      threadName = result.return_values.thread_name;
+    } else if (result.response?.thread_name) {
+      threadName = result.response.thread_name;
+    }
+
+    if (threadName) {
+      console.log('[LangGraphNamerDirect] Success:', threadName);
+      return threadName.trim();
+    } else {
+      console.warn('[LangGraphNamerDirect] No thread_name found in result:', result);
+      return null;
+    }
+
+  } catch (error) {
+    console.error('[LangGraphNamerDirect] Error:', error);
+    return null;
+  }
+}
+
+/**
+ * Smart namer that tries both approaches
+ */
+export async function generateThreadNameSmart(
+  config: NamerConfig,
+  initialMessage: string
+): Promise<string | null> {
+  // Try streaming first (matches your main chat flow)
+  let result = await generateThreadName(config, initialMessage);
+  
+  if (!result) {
+    console.log('[SmartNamer] Streaming failed, trying direct invoke...');
+    // Fallback to direct invoke
+    result = await generateThreadNameDirect(config, initialMessage);
+  }
+  
+  return result;
 }
